@@ -149,6 +149,9 @@ export default function RequestsPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Date
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -175,6 +178,14 @@ export default function RequestsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {formatDate(request.requestDate)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
+                        <Link
+                          href={`/requests/${request.id}`}
+                          className="hover:text-blue-800"
+                        >
+                          View Details
+                        </Link>
                       </td>
                     </tr>
                   )

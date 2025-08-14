@@ -6,6 +6,8 @@ import { validateAllItems, hasValidationErrors, validateItem } from '@/lib/valid
 
 interface RequestFormProps {
   onSubmit?: (request: Request) => Promise<Request>
+  initialData?: Request
+  isEditing?: boolean
 }
 
 const createEmptyItem = (id: string): RequestItem => ({
@@ -20,10 +22,10 @@ const createEmptyItem = (id: string): RequestItem => ({
   neededByDate: ''
 })
 
-export default function RequestForm({ onSubmit }: RequestFormProps) {
-  const [items, setItems] = useState<RequestItem[]>([
-    createEmptyItem('item-1')
-  ])
+export default function RequestForm({ onSubmit, initialData, isEditing = false }: RequestFormProps) {
+  const [items, setItems] = useState<RequestItem[]>(
+    initialData?.items || [createEmptyItem('item-1')]
+  )
   const [errors, setErrors] = useState<FormErrors>({})
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -96,16 +98,16 @@ export default function RequestForm({ onSubmit }: RequestFormProps) {
     try {
       // Create request object
       const request: Request = {
-        id: `req-${Date.now()}`,
-        requesterName: 'Current User', // TODO: Get from auth context
-        requestDate: new Date().toISOString(),
+        id: initialData?.id || `req-${Date.now()}`,
+        requesterName: initialData?.requesterName || 'Current User', // TODO: Get from auth context
+        requestDate: initialData?.requestDate || new Date().toISOString(),
         items: items.map(item => ({
           ...item,
           quantity: Number(item.quantity) || 0,
           estimatedCost: item.estimatedCost ? Number(item.estimatedCost) : 0,
           priority: item.priority as Priority
         })),
-        status: 'requested'
+        status: initialData?.status || 'requested'
       }
 
       // Submit to API
@@ -132,10 +134,13 @@ export default function RequestForm({ onSubmit }: RequestFormProps) {
             </svg>
           </div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Request Submitted Successfully
+            {isEditing ? 'Request Updated Successfully' : 'Request Submitted Successfully'}
           </h3>
           <p className="text-gray-600 mb-6">
-            Your procurement request has been submitted and is now waiting for approval.
+            {isEditing 
+              ? 'Your procurement request has been updated successfully.' 
+              : 'Your procurement request has been submitted and is now waiting for approval.'
+            }
           </p>
           <button
             onClick={() => {
