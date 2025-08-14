@@ -5,7 +5,7 @@ import { RequestItem, FormErrors, Priority, Request } from '@/lib/types'
 import { validateAllItems, hasValidationErrors, validateItem } from '@/lib/validation'
 
 interface RequestFormProps {
-  onSubmit?: (request: Request) => void
+  onSubmit?: (request: Request) => Promise<Request>
 }
 
 const createEmptyItem = (id: string): RequestItem => ({
@@ -27,6 +27,7 @@ export default function RequestForm({ onSubmit }: RequestFormProps) {
   const [errors, setErrors] = useState<FormErrors>({})
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   // Generate unique ID for new items
   const generateItemId = () => `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
@@ -90,27 +91,35 @@ export default function RequestForm({ onSubmit }: RequestFormProps) {
     }
 
     setIsSubmitting(true)
+    setSubmitError(null)
 
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    try {
+      // Create request object
+      const request: Request = {
+        id: `req-${Date.now()}`,
+        requesterName: 'Current User', // TODO: Get from auth context
+        requestDate: new Date().toISOString(),
+        items: items.map(item => ({
+          ...item,
+          quantity: Number(item.quantity) || 0,
+          estimatedCost: item.estimatedCost ? Number(item.estimatedCost) : 0,
+          priority: item.priority as Priority
+        })),
+        status: 'requested'
+      }
 
-    // Create request object
-    const request: Request = {
-      id: `req-${Date.now()}`,
-      requesterName: 'Current User', // TODO: Get from auth context
-      requestDate: new Date().toISOString(),
-      items: items.map(item => ({
-        ...item,
-        quantity: Number(item.quantity) || 0,
-        estimatedCost: item.estimatedCost ? Number(item.estimatedCost) : 0,
-        priority: item.priority as Priority
-      })),
-      status: 'requested'
+      // Submit to API
+      if (onSubmit) {
+        await onSubmit(request)
+      }
+      
+      setIsSubmitted(true)
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Failed to submit request')
+      console.error('Submission error:', error)
+    } finally {
+      setIsSubmitting(false)
     }
-
-    onSubmit?.(request)
-    setIsSubmitted(true)
-    setIsSubmitting(false)
   }
 
   if (isSubmitted) {
@@ -133,6 +142,7 @@ export default function RequestForm({ onSubmit }: RequestFormProps) {
               setIsSubmitted(false)
               setItems([createEmptyItem(generateItemId())])
               setErrors({})
+              setSubmitError(null)
             }}
             className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors"
           >
@@ -332,6 +342,20 @@ export default function RequestForm({ onSubmit }: RequestFormProps) {
             + Add Item
           </button>
         </div>
+
+        {/* Error Display */}
+        {submitError && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="flex">
+              <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="ml-3">
+                <p className="text-sm text-red-800">{submitError}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Submit Button */}
         <div className="flex justify-end pt-6 border-t">

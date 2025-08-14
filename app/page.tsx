@@ -4,10 +4,28 @@ import RequestForm from '@/components/RequestForm'
 import { Request } from '@/lib/types'
 
 export default function HomePage() {
-  const handleSubmit = (request: Request) => {
-    // Store request in memory (for now)
-    console.log('Request submitted:', request)
-    // TODO: Send to API endpoint
+  const handleSubmit = async (request: Request) => {
+    try {
+      const response = await fetch('/api/requests', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to submit request')
+      }
+
+      const savedRequest = await response.json()
+      console.log('Request saved successfully:', savedRequest)
+      return savedRequest
+    } catch (error) {
+      console.error('Error submitting request:', error)
+      throw error
+    }
   }
 
   return (
