@@ -2,6 +2,21 @@ export type Priority = 'urgent' | 'medium' | 'low'
 
 export type RequestStatus = 'draft' | 'requested' | 'waiting_for_approval' | 'approved' | 'rejected'
 
+export type UserRole = 'requester' | 'purchaser' | 'ceo'
+
+export interface User {
+  id: string
+  email: string
+  role: UserRole
+  name: string
+}
+
+export interface MagicLinkPayload {
+  email: string
+  type: 'magic-link'
+  exp: number
+}
+
 export interface RequestItem {
   id: string
   itemName: string
