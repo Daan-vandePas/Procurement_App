@@ -35,6 +35,12 @@ export default function RootLayout({
                   >
                     View All Requests
                   </Link>
+                  <Link
+                    href="/purchaser"
+                    className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium"
+                  >
+                    Purchaser Portal
+                  </Link>
                 </nav>
               </div>
             </div>
