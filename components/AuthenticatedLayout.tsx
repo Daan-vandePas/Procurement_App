@@ -64,7 +64,7 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
       case 'ceo':
         return '/requests'
       case 'purchaser':
-        return '/purchaser'
+        return '/requests'
       case 'requester':
       default:
         return '/'
