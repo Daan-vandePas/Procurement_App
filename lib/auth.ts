@@ -141,15 +141,8 @@ export function hasRole(user: User | null, requiredRole: UserRole): boolean {
 }
 
 export function getRedirectPathForRole(role: UserRole): string {
-  switch (role) {
-    case 'ceo':
-      return '/requests' // CEO sees all requests for approval
-    case 'purchaser':
-      return '/purchaser' // Purchaser portal
-    case 'requester':
-    default:
-      return '/' // Default to new request form
-  }
+  // All users go to the requests page after login
+  return '/requests'
 }
 
 export function generateUserId(): string {

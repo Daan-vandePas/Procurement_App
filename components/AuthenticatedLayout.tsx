@@ -84,28 +84,11 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
   const getNavigationItems = () => {
     if (!user) return []
 
-    const items = []
-
-    // Common items for all authenticated users
-    if (user.role === 'requester' || user.role === 'purchaser' || user.role === 'ceo') {
-      items.push({ href: '/', label: 'New Request' })
-    }
-
-    // View requests - different access levels
-    if (user.role === 'ceo') {
-      items.push({ href: '/requests', label: 'All Requests (Approve)' })
-    } else if (user.role === 'purchaser') {
-      items.push({ href: '/requests', label: 'All Requests' })
-    } else {
-      items.push({ href: '/requests', label: 'My Requests' })
-    }
-
-    // Purchaser portal - only for purchasers and CEO
-    if (user.role === 'purchaser' || user.role === 'ceo') {
-      items.push({ href: '/purchaser', label: 'Purchaser Portal' })
-    }
-
-    return items
+    // Simplified navigation - same for all users
+    return [
+      { href: '/', label: 'New Request' },
+      { href: '/requests', label: 'All Requests' }
+    ]
   }
 
   // Show loading spinner for non-public routes

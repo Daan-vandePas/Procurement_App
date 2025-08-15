@@ -1,6 +1,9 @@
 {
-  "/login/page": "app/login/page.js",
+  "/api/dev/sample-data/route": "app/api/dev/sample-data/route.js",
+  "/api/auth/me/route": "app/api/auth/me/route.js",
   "/requests/page": "app/requests/page.js",
-  "/page": "app/page.js",
-  "/purchaser/page": "app/purchaser/page.js"
+  "/login/page": "app/login/page.js",
+  "/api/requests/route": "app/api/requests/route.js",
+  "/requests/[id]/page": "app/requests/[id]/page.js",
+  "/api/requests/[id]/route": "app/api/requests/[id]/route.js"
 }
