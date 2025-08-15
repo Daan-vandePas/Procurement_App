@@ -212,7 +212,7 @@ export default function RequestsPage() {
                         {request.id}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900">
-                        <div className="max-w-xs truncate" title={projectJustification}>
+                        <div className="max-w-xs" style={{whiteSpace: 'normal', wordWrap: 'break-word'}}>
                           {projectJustification}
                         </div>
                       </td>
@@ -226,9 +226,14 @@ export default function RequestsPage() {
                           </div>
                         </td>
                       )}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(request.status)}`}>
-                          {request.status.replace('_', ' ')}
+                      <td className="px-6 py-4 text-center">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(request.status)}`} style={{whiteSpace: 'pre-line', textAlign: 'center'}}>
+                          {request.status === 'waiting_for_approval' 
+                            ? 'Waiting for\nApproval'
+                            : request.status.replace('_', ' ').split(' ').map(word => 
+                                word.charAt(0).toUpperCase() + word.slice(1)
+                              ).join(' ')
+                          }
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

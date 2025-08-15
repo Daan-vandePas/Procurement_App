@@ -1,6 +1,7 @@
 {
-  "/purchaser/requests/[id]/page": "app/purchaser/requests/[id]/page.js",
-  "/api/requests/[id]/route": "app/api/requests/[id]/route.js",
+  "/api/auth/me/route": "app/api/auth/me/route.js",
   "/api/requests/route": "app/api/requests/route.js",
+  "/page": "app/page.js",
+  "/requests/page": "app/requests/page.js",
   "/purchaser/page": "app/purchaser/page.js"
 }

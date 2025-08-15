@@ -329,8 +329,13 @@ export default function PurchaserRequestDetailPage() {
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-500">Status</h3>
-            <span className={`mt-1 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(request.status)}`}>
-              {request.status.replace('_', ' ')}
+            <span className={`mt-1 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(request.status)}`} style={{whiteSpace: 'pre-line', textAlign: 'center'}}>
+              {request.status === 'waiting_for_approval' 
+                ? 'Waiting for\nApproval'
+                : request.status.replace('_', ' ').split(' ').map(word => 
+                    word.charAt(0).toUpperCase() + word.slice(1)
+                  ).join(' ')
+              }
             </span>
           </div>
           <div>
