@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateMagicLink, getUserRoleFromEmail } from '@/lib/auth'
+import { generateMagicLink, getUserRoleFromEmail, isAuthorizedEmail } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,6 +18,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Invalid email format' },
         { status: 400 }
+      )
+    }
+
+    // Check if email is authorized to access the platform
+    if (!isAuthorizedEmail(trimmedEmail)) {
+      return NextResponse.json(
+        { error: 'This email is not authorized to access the procurement system. Please contact your administrator.' },
+        { status: 403 }
       )
     }
 

@@ -7,9 +7,33 @@ const MAGIC_LINK_SECRET = process.env.MAGIC_LINK_SECRET || 'fallback-magic-secre
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h'
 const MAGIC_LINK_EXPIRES_IN = process.env.MAGIC_LINK_EXPIRES_IN || '15m'
 
-export function getUserRoleFromEmail(email: string): UserRole {
+export function isAuthorizedEmail(email: string): boolean {
   const ceoEmails = process.env.CEO_EMAILS?.split(',').map(e => e.trim()) || []
   const purchaserEmails = process.env.PURCHASER_EMAILS?.split(',').map(e => e.trim()) || []
+  const externalRequesterEmails = process.env.EXTERNAL_REQUESTER_EMAILS?.split(',').map(e => e.trim()) || []
+  
+  // Check if email is explicitly listed in any role
+  if (ceoEmails.includes(email) || purchaserEmails.includes(email) || externalRequesterEmails.includes(email)) {
+    return true
+  }
+  
+  // Check if email is from batiamosa.be domain (authorized domain)
+  if (email.endsWith('@batiamosa.be')) {
+    return true
+  }
+  
+  return false
+}
+
+export function getUserRoleFromEmail(email: string): UserRole | null {
+  // First check if email is authorized
+  if (!isAuthorizedEmail(email)) {
+    return null
+  }
+  
+  const ceoEmails = process.env.CEO_EMAILS?.split(',').map(e => e.trim()) || []
+  const purchaserEmails = process.env.PURCHASER_EMAILS?.split(',').map(e => e.trim()) || []
+  const externalRequesterEmails = process.env.EXTERNAL_REQUESTER_EMAILS?.split(',').map(e => e.trim()) || []
   
   if (ceoEmails.includes(email)) {
     return 'ceo'
@@ -19,7 +43,12 @@ export function getUserRoleFromEmail(email: string): UserRole {
     return 'purchaser'
   }
   
-  return 'requester'
+  // External requesters or batiamosa.be domain emails default to requester
+  if (externalRequesterEmails.includes(email) || email.endsWith('@batiamosa.be')) {
+    return 'requester'
+  }
+  
+  return null
 }
 
 export function generateMagicLink(email: string): string {
@@ -127,11 +156,17 @@ export function generateUserId(): string {
   return `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 }
 
-export function createUserFromEmail(email: string): User {
+export function createUserFromEmail(email: string): User | null {
+  const role = getUserRoleFromEmail(email)
+  
+  if (!role) {
+    return null // Unauthorized email
+  }
+  
   return {
     id: generateUserId(),
     email,
-    role: getUserRoleFromEmail(email),
+    role,
     name: email.split('@')[0] // Use email prefix as default name
   }
 }

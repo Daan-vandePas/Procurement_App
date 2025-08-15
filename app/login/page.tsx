@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 export default function LoginPage() {
@@ -11,6 +11,34 @@ export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirect') || '/'
+  
+  // Handle URL error messages
+  const urlError = searchParams.get('error')
+  const urlMessage = searchParams.get('message')
+  
+  useEffect(() => {
+    if (urlError) {
+      switch (urlError) {
+        case 'unauthorized-email':
+          setError('This email is not authorized to access the procurement system. Please contact your administrator.')
+          break
+        case 'invalid-token':
+          setError('Invalid or expired magic link. Please request a new one.')
+          break
+        case 'missing-token':
+          setError('Invalid magic link. Please request a new one.')
+          break
+        case 'auth-failed':
+          setError('Authentication failed. Please try again.')
+          break
+        default:
+          setError('An error occurred. Please try again.')
+      }
+    }
+    if (urlMessage === 'logged-out') {
+      setMessage('You have been logged out successfully.')
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

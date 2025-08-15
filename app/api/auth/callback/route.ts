@@ -21,6 +21,10 @@ export async function GET(request: NextRequest) {
 
     // Create user object
     const user = createUserFromEmail(email)
+    
+    if (!user) {
+      return NextResponse.redirect(new URL('/login?error=unauthorized-email', request.url))
+    }
 
     // Generate session token
     const sessionToken = generateSessionToken(user)
@@ -66,6 +70,13 @@ export async function POST(request: NextRequest) {
 
     // Create user object
     const user = createUserFromEmail(email)
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: 'This email is not authorized to access the procurement system.' },
+        { status: 403 }
+      )
+    }
 
     // Generate session token
     const sessionToken = generateSessionToken(user)
