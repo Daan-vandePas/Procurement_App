@@ -10,8 +10,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/nodemailer": "^6.4.17",
     "@vercel/kv": "^3.0.0",
+    "jsonwebtoken": "^9.0.2",
     "next": "^14.2.31",
+    "nodemailer": "^7.0.5",
     "react": "^18",
     "react-dom": "^18"
   },
