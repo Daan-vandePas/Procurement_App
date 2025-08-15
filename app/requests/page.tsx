@@ -2,30 +2,40 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Request } from '@/lib/types'
+import { Request, User } from '@/lib/types'
 
 export default function RequestsPage() {
   const [requests, setRequests] = useState<Request[]>([])
+  const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchRequests = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch('/api/requests')
-        if (!response.ok) {
+        // Get user info first
+        const userResponse = await fetch('/api/auth/me')
+        if (!userResponse.ok) {
+          throw new Error('Authentication required')
+        }
+        const userData = await userResponse.json()
+        setUser(userData)
+
+        // Get filtered requests based on user role
+        const requestsResponse = await fetch('/api/requests')
+        if (!requestsResponse.ok) {
           throw new Error('Failed to fetch requests')
         }
-        const data = await response.json()
-        setRequests(data)
+        const requestsData = await requestsResponse.json()
+        setRequests(requestsData)
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load requests')
+        setError(err instanceof Error ? err.message : 'Failed to load data')
       } finally {
         setLoading(false)
       }
     }
 
-    fetchRequests()
+    fetchData()
   }, [])
 
   const getStatusColor = (status: string) => {
@@ -96,15 +106,45 @@ export default function RequestsPage() {
     )
   }
 
+  const getPageTitle = () => {
+    if (!user) return 'All Requests'
+    
+    switch (user.role) {
+      case 'requester':
+        return 'My Requests'
+      case 'purchaser':
+        return 'All Requests - Purchasing View'
+      case 'ceo':
+        return 'All Requests - Approval View'
+      default:
+        return 'All Requests'
+    }
+  }
+
+  const getPageDescription = () => {
+    if (!user) return 'View and manage procurement requests'
+    
+    switch (user.role) {
+      case 'requester':
+        return 'View and manage your procurement requests'
+      case 'purchaser':
+        return 'Process and add pricing to submitted requests'
+      case 'ceo':
+        return 'Review and approve procurement requests'
+      default:
+        return 'View and manage procurement requests'
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            All Requests
+            {getPageTitle()}
           </h2>
           <p className="text-gray-600">
-            View and manage all procurement requests
+            {getPageDescription()}
           </p>
         </div>
         <Link
@@ -143,6 +183,11 @@ export default function RequestsPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Justification/Project
                   </th>
+                  {(user?.role === 'purchaser' || user?.role === 'ceo') && (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Requester
+                    </th>
+                  )}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
@@ -171,6 +216,16 @@ export default function RequestsPage() {
                           {projectJustification}
                         </div>
                       </td>
+                      {(user?.role === 'purchaser' || user?.role === 'ceo') && (
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <div className="max-w-xs truncate" title={request.requesterName}>
+                            {request.requesterName.split('@')[0]}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            @{request.requesterName.split('@')[1]}
+                          </div>
+                        </td>
+                      )}
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(request.status)}`}>
                           {request.status.replace('_', ' ')}

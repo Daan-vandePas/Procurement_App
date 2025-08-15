@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Request } from '@/lib/types'
 import { saveRequest, getAllRequests } from '@/lib/storage'
+import { getUserFromRequest } from '@/lib/auth'
 
 // POST /api/requests - Create new request
 export async function POST(request: NextRequest) {
@@ -28,11 +29,43 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/requests - Get all requests
-export async function GET() {
+// GET /api/requests - Get requests filtered by user role
+export async function GET(request: NextRequest) {
   try {
-    const requests = await getAllRequests()
-    return NextResponse.json(requests)
+    // Get user from session
+    const user = getUserFromRequest(request)
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+
+    // Get all requests first
+    const allRequests = await getAllRequests()
+    
+    // Filter requests based on user role
+    let filteredRequests = allRequests
+    
+    switch (user.role) {
+      case 'requester':
+        // Requesters see only their own requests (all statuses including drafts)
+        filteredRequests = allRequests.filter(req => req.requesterName === user.email)
+        break
+        
+      case 'purchaser':
+      case 'ceo':
+        // Purchasers and CEOs see all requests except drafts
+        filteredRequests = allRequests.filter(req => req.status !== 'draft')
+        break
+        
+      default:
+        // Fallback: show only user's own requests
+        filteredRequests = allRequests.filter(req => req.requesterName === user.email)
+    }
+    
+    return NextResponse.json(filteredRequests)
   } catch (error) {
     console.error('Error fetching requests:', error)
     return NextResponse.json(

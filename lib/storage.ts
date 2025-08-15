@@ -2,6 +2,7 @@ import { Request } from './types'
 
 // Storage utility that works both locally and on Vercel
 let kvInstance: any = null
+let sampleDataInitialized = false
 
 // Initialize KV connection (works in Vercel, falls back to memory locally)
 const initKV = async () => {
@@ -20,6 +21,24 @@ const initKV = async () => {
     console.log('KV not available, using memory storage')
     kvInstance = createMemoryStorage()
   }
+  
+  // DEV ONLY: Auto-create sample data - REMOVE BEFORE PRODUCTION
+  if (process.env.NODE_ENV === 'development' && !sampleDataInitialized) {
+    sampleDataInitialized = true
+    
+    try {
+      const existingRequests = await getAllRequestsInternal()
+      if (existingRequests.length === 0) {
+        console.log('🔧 DEV: Creating sample data automatically...')
+        const { createSampleRequests } = await import('./sampleData')
+        await createSampleRequests()
+        console.log('✅ DEV: Sample data created for testing')
+      }
+    } catch (error) {
+      console.log('⚠️ DEV: Failed to create sample data:', error)
+    }
+  }
+  // END DEV ONLY SECTION
   
   return kvInstance
 }
@@ -68,6 +87,34 @@ export const getRequest = async (id: string): Promise<Request | null> => {
     console.error('Error parsing request data:', error)
     return null
   }
+}
+
+// Internal function to get requests without triggering initKV initialization
+const getAllRequestsInternal = async (): Promise<Request[]> => {
+  if (!kvInstance) return []
+  
+  const keys = await kvInstance.keys('request:*')
+  
+  if (!keys || keys.length === 0) return []
+  
+  const requests: Request[] = []
+  
+  for (const key of keys) {
+    try {
+      const data = await kvInstance.get(key)
+      if (data) {
+        const request = typeof data === 'string' ? JSON.parse(data) : data
+        requests.push(request)
+      }
+    } catch (error) {
+      console.error(`Error retrieving request ${key}:`, error)
+    }
+  }
+  
+  // Sort by request date (newest first)
+  return requests.sort((a, b) => 
+    new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime()
+  )
 }
 
 export const getAllRequests = async (): Promise<Request[]> => {
