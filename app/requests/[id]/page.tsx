@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Request, RequestItem, Priority } from '@/lib/types'
+import { Request, RequestItem, Priority, User, ItemProcessingData, ProcessingUpdate } from '@/lib/types'
+import PurchaserProcessingInterface from '@/components/PurchaserProcessingInterface'
 
 export default function RequestDetailPage() {
   const params = useParams()
@@ -11,13 +12,26 @@ export default function RequestDetailPage() {
   const requestId = params.id as string
 
   const [request, setRequest] = useState<Request | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [processingItems, setProcessingItems] = useState<{[itemId: string]: ItemProcessingData}>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [uploadingFile, setUploadingFile] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchRequest = async () => {
+    const fetchData = async () => {
       try {
+        // Get user info
+        const userResponse = await fetch('/api/auth/me')
+        if (!userResponse.ok) {
+          throw new Error('Authentication required')
+        }
+        const userData = await userResponse.json()
+        setUser(userData)
+
+        // Get request data
         const response = await fetch(`/api/requests/${requestId}`)
         if (!response.ok) {
           if (response.status === 404) {
@@ -29,15 +43,30 @@ export default function RequestDetailPage() {
         }
         const data = await response.json()
         setRequest(data)
+
+        // Initialize processing state for purchasers
+        if (userData.role === 'purchaser' && data.status === 'requested') {
+          const initialProcessing: {[itemId: string]: ItemProcessingData} = {}
+          data.items.forEach((item: RequestItem) => {
+            initialProcessing[item.id] = {
+              itemStatus: item.itemStatus || 'pending',
+              actualCost: item.actualCost,
+              costProof: item.costProof,
+              costProofType: item.costProofType,
+              rejectionReason: item.rejectionReason
+            }
+          })
+          setProcessingItems(initialProcessing)
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load request')
+        setError(err instanceof Error ? err.message : 'Failed to load data')
       } finally {
         setLoading(false)
       }
     }
 
     if (requestId) {
-      fetchRequest()
+      fetchData()
     }
   }, [requestId])
 
@@ -65,15 +94,50 @@ export default function RequestDetailPage() {
     }
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+  const handleItemUpdate = async (update: ProcessingUpdate) => {
+    try {
+      const response = await fetch(`/api/requests/${requestId}/process`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(update)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to update item')
+      }
+
+      const updatedRequest = await response.json()
+      setRequest(updatedRequest)
+    } catch (error) {
+      throw error
+    }
   }
+
+  const handleSubmitForApproval = async () => {
+    setIsSubmitting(true)
+    try {
+      const response = await fetch(`/api/requests/${requestId}/process`, {
+        method: 'POST'
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to submit for approval')
+      }
+
+      const result = await response.json()
+      setRequest(result.request)
+      setError(null)
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to submit for approval')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -102,6 +166,24 @@ export default function RequestDetailPage() {
         return 'bg-gray-100 text-gray-800'
     }
   }
+
+  const getItemStatusColor = (status: string) => {
+    switch (status) {
+      case 'priced':
+        return 'bg-green-100 text-green-800'
+      case 'rejected':
+        return 'bg-red-100 text-red-800'
+      case 'pending':
+      default:
+        return 'bg-yellow-100 text-yellow-800'
+    }
+  }
+
+  // Permission checks
+  const canEditOriginal = user?.role === 'requester' && request?.requesterName === user.email && request?.status === 'draft'
+  const canDeleteOriginal = user?.role === 'requester' && request?.requesterName === user.email && request?.status === 'draft'
+  const canProcess = user?.role === 'purchaser' && request?.status === 'requested'
+  const canApprove = user?.role === 'ceo' && request?.status === 'waiting_for_approval'
 
   if (loading) {
     return (
@@ -149,7 +231,7 @@ export default function RequestDetailPage() {
     return null
   }
 
-  const canEdit = request.status === 'requested'
+  // Note: canEdit was redefined incorrectly, using permission checks from above
 
   return (
     <div className="space-y-6">
@@ -166,7 +248,7 @@ export default function RequestDetailPage() {
           >
             Back to Requests
           </Link>
-          {canEdit && (
+          {canEditOriginal && (
             <>
               <Link
                 href={`/requests/${request.id}/edit`}
@@ -191,7 +273,10 @@ export default function RequestDetailPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <div>
             <h3 className="text-sm font-medium text-gray-500">Requester</h3>
-            <p className="mt-1 text-sm text-gray-900">{request.requesterName}</p>
+            <div className="mt-1">
+              <div className="text-sm text-gray-900">{request.requesterName.split('@')[0]}</div>
+              <div className="text-xs text-gray-500">@{request.requesterName.split('@')[1]}</div>
+            </div>
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-500">Status</h3>
@@ -201,7 +286,13 @@ export default function RequestDetailPage() {
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-500">Date Submitted</h3>
-            <p className="mt-1 text-sm text-gray-900">{formatDate(request.requestDate)}</p>
+            <p className="mt-1 text-sm text-gray-900">
+              {new Date(request.requestDate).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+              })}
+            </p>
           </div>
         </div>
 
@@ -233,6 +324,22 @@ export default function RequestDetailPage() {
                     </div>
                   )}
                   
+                  {item.actualCost && (
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-500">Actual Cost</h5>
+                      <p className="mt-1 text-sm text-gray-900">€{item.actualCost}</p>
+                    </div>
+                  )}
+                  
+                  {item.itemStatus && (
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-500">Item Status</h5>
+                      <span className={`mt-1 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getItemStatusColor(item.itemStatus)}`}>
+                        {item.itemStatus}
+                      </span>
+                    </div>
+                  )}
+                  
                   {item.supplierName && (
                     <div>
                       <h5 className="text-sm font-medium text-gray-500">Supplier</h5>
@@ -261,14 +368,60 @@ export default function RequestDetailPage() {
                   <h5 className="text-sm font-medium text-gray-500">Justification</h5>
                   <p className="mt-1 text-sm text-gray-900">{item.justification}</p>
                 </div>
+                
+                {item.rejectionReason && (
+                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                    <h5 className="text-sm font-medium text-red-800">Rejection Reason</h5>
+                    <p className="mt-1 text-sm text-red-700">{item.rejectionReason}</p>
+                  </div>
+                )}
+                
+                {item.costProof && (
+                  <div className="mt-4">
+                    <h5 className="text-sm font-medium text-gray-500">Cost Proof</h5>
+                    {item.costProofType === 'link' ? (
+                      <a href={item.costProof} target="_blank" rel="noopener noreferrer" className="mt-1 text-sm text-blue-600 hover:underline break-all">
+                        {item.costProof}
+                      </a>
+                    ) : (
+                      <a href={item.costProof} target="_blank" rel="noopener noreferrer" className="mt-1 text-sm text-blue-600 hover:underline">
+                        View uploaded file
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
         </div>
       </div>
 
+      {/* Purchaser Processing Interface */}
+      {canProcess && (
+        <div className="bg-white rounded-lg shadow">
+          <div className="p-6 border-b border-gray-200">
+            <h3 className="text-lg font-medium text-gray-900">Process Request Items</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Review each item and either add pricing information or reject the item.
+            </p>
+          </div>
+          <div className="p-6">
+            <PurchaserProcessingInterface
+              items={request.items}
+              onItemUpdate={handleItemUpdate}
+              onSubmitForApproval={handleSubmitForApproval}
+              processingItems={processingItems}
+              setProcessingItems={setProcessingItems}
+              isSubmitting={isSubmitting}
+              uploadingFile={uploadingFile}
+              setUploadingFile={setUploadingFile}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Status Info */}
-      {!canEdit && (
+      {!canEditOriginal && !canProcess && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <div className="flex">
             <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -276,7 +429,11 @@ export default function RequestDetailPage() {
             </svg>
             <div className="ml-3">
               <p className="text-sm text-yellow-800">
-                This request cannot be edited or deleted because it has already been processed beyond the "requested" status.
+                {user?.role === 'requester' && request.status !== 'draft' 
+                  ? 'This request cannot be edited or deleted because it has already been submitted.'
+                  : user?.role === 'ceo' && request.status === 'waiting_for_approval'
+                  ? 'This request is waiting for your approval.'
+                  : 'This request is being processed.'}
               </p>
             </div>
           </div>

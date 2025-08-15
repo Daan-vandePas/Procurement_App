@@ -17,6 +17,9 @@ export interface MagicLinkPayload {
   exp: number
 }
 
+export type ItemStatus = 'pending' | 'priced' | 'rejected'
+export type CostProofType = 'pdf' | 'image' | 'link'
+
 export interface RequestItem {
   id: string
   itemName: string
@@ -27,6 +30,13 @@ export interface RequestItem {
   estimatedCost: number | ''
   priority: Priority | ''
   neededByDate: string
+  
+  // Purchaser workflow fields
+  actualCost?: number
+  costProof?: string
+  costProofType?: CostProofType
+  rejectionReason?: string
+  itemStatus?: ItemStatus
 }
 
 export interface Request {
@@ -35,6 +45,10 @@ export interface Request {
   requestDate: string
   items: RequestItem[]
   status: RequestStatus
+  
+  // Purchaser workflow fields
+  processedBy?: string
+  processedDate?: string
 }
 
 export interface FormErrors {
@@ -47,5 +61,21 @@ export interface FormErrors {
     estimatedCost?: string
     priority?: string
     neededByDate?: string
+    actualCost?: string
+    costProof?: string
+    rejectionReason?: string
   }
+}
+
+export interface ItemProcessingData {
+  actualCost?: number
+  costProof?: string
+  costProofType?: CostProofType
+  rejectionReason?: string
+  itemStatus: ItemStatus
+}
+
+export interface ProcessingUpdate {
+  itemId: string
+  data: ItemProcessingData
 }

@@ -1,1 +1,5 @@
 node_modules
+
+# Uploaded files (keep the directory structure, ignore actual files)
+public/uploads/cost-proofs/*
+!public/uploads/cost-proofs/.gitkeep
