@@ -259,7 +259,7 @@ export default function PurchaserRequestDetailPage() {
 
   if (!request) return null
 
-  const canEdit = request.status === 'requested'
+  const canEdit = request.status === 'requested' || request.status === 'waiting_for_approval'
   const totalEstimatedCost = request.items.reduce((sum, item, index) => {
     const itemId = item.id
     const cost = itemUpdates[itemId]?.estimatedCost || item.estimatedCost
@@ -322,7 +322,10 @@ export default function PurchaserRequestDetailPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
           <div>
             <h3 className="text-sm font-medium text-gray-500">Requester</h3>
-            <p className="mt-1 text-sm text-gray-900">{request.requesterName}</p>
+            <div className="mt-1">
+              <div className="text-sm text-gray-900">{request.requesterName.split('@')[0]}</div>
+              <div className="text-xs text-gray-500">@{request.requesterName.split('@')[1]}</div>
+            </div>
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-500">Status</h3>
@@ -478,7 +481,7 @@ export default function PurchaserRequestDetailPage() {
             </svg>
             <div className="ml-3">
               <p className="text-sm text-yellow-800">
-                This request has already been sent for approval and cannot be modified.
+                This request has been {request.status === 'approved' ? 'approved' : 'rejected'} and cannot be modified.
               </p>
             </div>
           </div>

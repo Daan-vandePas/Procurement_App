@@ -248,7 +248,12 @@ export default function PurchaserPortalPage() {
                         {request.id}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {request.requesterName}
+                        <div className="max-w-xs truncate" title={request.requesterName}>
+                          {request.requesterName.split('@')[0]}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          @{request.requesterName.split('@')[1]}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900">
                         <div className="max-w-xs truncate" title={projectJustification}>
@@ -278,7 +283,9 @@ export default function PurchaserPortalPage() {
                           href={`/purchaser/requests/${request.id}`}
                           className="text-blue-600 hover:text-blue-800 font-medium"
                         >
-                          Process Request
+                          {request.status === 'requested' || request.status === 'waiting_for_approval' 
+                            ? 'Process Request' 
+                            : 'View Details'}
                         </Link>
                       </td>
                     </tr>
