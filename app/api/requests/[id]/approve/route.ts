@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserFromRequest } from '@/lib/auth'
 import { getRequest, updateRequest } from '@/lib/storage'
-import { ApprovalUpdate, ItemApprovalData } from '@/lib/types'
+import { ApprovalUpdate, ItemApprovalData, RequestStatus } from '@/lib/types'
 
 interface RouteParams {
   params: {
@@ -158,12 +158,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     
     // Business logic: If any item is rejected, the whole request is rejected
     // Only if ALL items are approved, the request becomes approval_completed
-    const finalStatus = hasRejectedItems ? 'rejected' : 'approval_completed'
+    const finalStatus: RequestStatus = hasRejectedItems ? 'rejected' : 'approval_completed'
 
     // Update request status and add approval metadata
     const updatedRequest = {
       ...existingRequest,
-      status: finalStatus as const,
+      status: finalStatus,
       approvalCompletedBy: user.email,
       approvalCompletedDate: new Date().toISOString()
     }

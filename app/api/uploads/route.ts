@@ -78,8 +78,7 @@ export async function POST(request: NextRequest) {
       const { mkdir } = await import('fs/promises')
       await mkdir(uploadDir, { recursive: true })
     } catch (error) {
-      // Directory already exists or creation failed
-      console.log('Upload directory handling:', error)
+      // Directory already exists or creation failed - continue
     }
 
     // Save file

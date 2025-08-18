@@ -58,7 +58,7 @@ export function generateMagicLink(email: string): string {
     exp: Math.floor(Date.now() / 1000) + (15 * 60) // 15 minutes
   }
   
-  const token = jwt.sign(payload, MAGIC_LINK_SECRET)
+  const token = jwt.sign(payload, MAGIC_LINK_SECRET as jwt.Secret)
   const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
   
   return `${baseUrl}/api/auth/callback?token=${token}`
@@ -66,7 +66,7 @@ export function generateMagicLink(email: string): string {
 
 export function verifyMagicLink(token: string): { email: string } | null {
   try {
-    const payload = jwt.verify(token, MAGIC_LINK_SECRET) as MagicLinkPayload
+    const payload = jwt.verify(token, MAGIC_LINK_SECRET as jwt.Secret) as MagicLinkPayload
     
     if (payload.type !== 'magic-link') {
       return null
@@ -79,20 +79,22 @@ export function verifyMagicLink(token: string): { email: string } | null {
 }
 
 export function generateSessionToken(user: User): string {
+  const expirationTime = Math.floor(Date.now() / 1000) + (8 * 60 * 60) // 8 hours
   const payload = {
     id: user.id,
     email: user.email,
     role: user.role,
     name: user.name,
-    type: 'session'
+    type: 'session',
+    exp: expirationTime
   }
   
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN })
+  return jwt.sign(payload, JWT_SECRET as jwt.Secret)
 }
 
 export function verifySessionToken(token: string): User | null {
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as any
+    const payload = jwt.verify(token, JWT_SECRET as jwt.Secret) as any
     
     if (payload.type !== 'session') {
       return null

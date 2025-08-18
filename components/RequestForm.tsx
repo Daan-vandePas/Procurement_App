@@ -118,7 +118,6 @@ export default function RequestForm({ onSubmit, initialData, isEditing = false }
       setIsSubmitted(true)
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Failed to submit request')
-      console.error('Submission error:', error)
     } finally {
       setIsSubmitting(false)
     }

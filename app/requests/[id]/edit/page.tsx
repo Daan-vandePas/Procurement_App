@@ -72,7 +72,6 @@ export default function EditRequestPage() {
       
       return savedRequest
     } catch (error) {
-      console.error('Error updating request:', error)
       throw error
     }
   }

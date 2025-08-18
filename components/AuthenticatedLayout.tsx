@@ -47,7 +47,6 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
         }
       }
     } catch (error) {
-      console.error('Auth check failed:', error)
       setUser(null)
       
       if (!isPublicRoute) {
@@ -77,7 +76,6 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
       setUser(null)
       router.push('/login?message=logged-out')
     } catch (error) {
-      console.error('Logout failed:', error)
     }
   }
 

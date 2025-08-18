@@ -20,10 +20,8 @@ export default function HomePage() {
       }
 
       const savedRequest = await response.json()
-      console.log('Request saved successfully:', savedRequest)
       return savedRequest
     } catch (error) {
-      console.error('Error submitting request:', error)
       throw error
     }
   }

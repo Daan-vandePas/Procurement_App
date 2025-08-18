@@ -14,31 +14,27 @@ const initKV = async () => {
       kvInstance = kv
     } else {
       // Fallback to in-memory storage for local development
-      console.log('Using in-memory storage (local development)')
       kvInstance = createMemoryStorage()
     }
   } catch (error) {
-    console.log('KV not available, using memory storage')
+    // KV not available, using memory storage
     kvInstance = createMemoryStorage()
   }
   
-  // DEV ONLY: Auto-create sample data - REMOVE BEFORE PRODUCTION
+  // DEV ONLY: Auto-create sample data for development
   if (process.env.NODE_ENV === 'development' && !sampleDataInitialized) {
     sampleDataInitialized = true
     
     try {
       const existingRequests = await getAllRequestsInternal()
       if (existingRequests.length === 0) {
-        console.log('🔧 DEV: Creating sample data automatically...')
         const { createSampleRequests } = await import('./sampleData')
         await createSampleRequests()
-        console.log('✅ DEV: Sample data created for testing')
       }
     } catch (error) {
-      console.log('⚠️ DEV: Failed to create sample data:', error)
+      // Failed to create sample data - continue without it
     }
   }
-  // END DEV ONLY SECTION
   
   return kvInstance
 }

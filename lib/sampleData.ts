@@ -114,16 +114,11 @@ export const sampleRequests: Request[] = [
 ]
 
 export async function createSampleRequests(): Promise<void> {
-  console.log('Creating sample requests...')
-  
   for (const request of sampleRequests) {
     try {
       await saveRequest(request)
-      console.log(`✅ Created sample request: ${request.id} (${request.status})`)
     } catch (error) {
-      console.error(`❌ Failed to create request ${request.id}:`, error)
+      console.error(`Failed to create sample request ${request.id}:`, error)
     }
   }
-  
-  console.log('Sample requests creation completed!')
 }

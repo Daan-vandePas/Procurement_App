@@ -80,7 +80,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
             costProof: processingUpdate.data.costProof,
             costProofType: processingUpdate.data.costProofType,
             rejectionReason: processingUpdate.data.rejectionReason,
-            itemStatus: processingUpdate.data.itemStatus
+            itemStatus: processingUpdate.data.itemStatus,
+            supplierName: processingUpdate.data.supplierName || item.supplierName,
+            supplierReference: processingUpdate.data.supplierReference || item.supplierReference
           }
         }
         return item

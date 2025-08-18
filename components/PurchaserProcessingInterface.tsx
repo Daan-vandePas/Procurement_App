@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { RequestItem, ItemProcessingData, ProcessingUpdate } from '@/lib/types'
+import { RequestItem, ItemProcessingData, ProcessingUpdate, CostProofType } from '@/lib/types'
 
 interface PurchaserProcessingInterfaceProps {
   items: RequestItem[]
@@ -25,10 +25,20 @@ export default function PurchaserProcessingInterface({
   setUploadingFile
 }: PurchaserProcessingInterfaceProps) {
   const [errors, setErrors] = useState<{[itemId: string]: string}>({})
+  const [linkInputs, setLinkInputs] = useState<{[itemId: string]: string}>({})
+  const [expandedItems, setExpandedItems] = useState<{[itemId: string]: boolean}>({})
+
+  const toggleItemExpansion = (itemId: string) => {
+    setExpandedItems({
+      ...expandedItems,
+      [itemId]: !expandedItems[itemId]
+    })
+  }
 
   const updateProcessingItem = (itemId: string, field: keyof ItemProcessingData, value: any) => {
     const currentItem = processingItems[itemId] || { itemStatus: 'pending' }
     const updatedItem = { ...currentItem, [field]: value }
+    
     
     setProcessingItems({
       ...processingItems,
@@ -61,10 +71,28 @@ export default function PurchaserProcessingInterface({
       }
       
       const result = await response.json()
-      
       // Update the processing item with file info
-      updateProcessingItem(itemId, 'costProof', result.url)
-      updateProcessingItem(itemId, 'costProofType', result.type === 'pdf' ? 'pdf' : 'image')
+      const fileUrl = result.url || result.filePath || result.path
+      
+      if (!fileUrl) {
+        throw new Error('Upload succeeded but no file URL returned')
+      }
+      
+      // Update both fields at once to avoid race conditions
+      const currentItem = processingItems[itemId] || { itemStatus: 'pending' }
+      const updatedItem = { 
+        ...currentItem, 
+        costProof: fileUrl,
+        costProofType: (result.type === 'pdf' ? 'pdf' : 'image') as CostProofType
+      }
+      
+      setProcessingItems({
+        ...processingItems,
+        [itemId]: updatedItem
+      })
+      
+      // Clear the link input when a file is uploaded
+      setLinkInputs({ ...linkInputs, [itemId]: '' })
       
     } catch (error) {
       setErrors({
@@ -103,6 +131,8 @@ export default function PurchaserProcessingInterface({
     try {
       await onItemUpdate({ itemId, data: itemData })
       setErrors({ ...errors, [itemId]: '' })
+      // Collapse the item after successful save
+      setExpandedItems({ ...expandedItems, [itemId]: false })
     } catch (error) {
       setErrors({
         ...errors,
@@ -168,9 +198,18 @@ export default function PurchaserProcessingInterface({
           const processing = processingItems[item.id] || { itemStatus: 'pending' }
           const error = errors[item.id]
           
+          const hasCost = !!processing.actualCost && processing.actualCost > 0
+          const hasProof = !!processing.costProof && 
+                          processing.costProof !== 'undefined' && 
+                          processing.costProof.toString().trim().length > 0
+          const canSave = hasCost && hasProof
+          const isProcessed = processing.itemStatus !== 'pending'
+          const isExpanded = expandedItems[item.id] ?? !isProcessed // Default: expand unprocessed items, collapse processed ones
+          
           return (
-            <div key={item.id} className="bg-white border border-gray-200 rounded-lg p-6">
-              <div className="flex justify-between items-start mb-4">
+            <div key={item.id} className={`bg-white border rounded-lg p-6 ${isProcessed ? 'border-green-200 bg-green-50' : 'border-gray-200'}`}>
+              {/* Item Header */}
+              <div className="flex justify-between items-start">
                 <div>
                   <h4 className="text-lg font-medium text-gray-900">
                     Item {index + 1}: {item.itemName}
@@ -192,7 +231,7 @@ export default function PurchaserProcessingInterface({
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Actual Cost (€)
+                      Cost for total Quantity (€)
                     </label>
                     <input
                       type="number"
@@ -202,6 +241,32 @@ export default function PurchaserProcessingInterface({
                       onChange={(e) => updateProcessingItem(item.id, 'actualCost', parseFloat(e.target.value) || undefined)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                       placeholder="0.00"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Supplier Name
+                    </label>
+                    <input
+                      type="text"
+                      value={processing.supplierName || ''}
+                      onChange={(e) => updateProcessingItem(item.id, 'supplierName', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter supplier name"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Supplier Reference (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={processing.supplierReference || ''}
+                      onChange={(e) => updateProcessingItem(item.id, 'supplierReference', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Part number, SKU, or supplier reference"
                     />
                   </div>
 
@@ -231,10 +296,23 @@ export default function PurchaserProcessingInterface({
                       <div>
                         <input
                           type="url"
-                          value={processing.costProofType === 'link' ? processing.costProof || '' : ''}
+                          value={linkInputs[item.id] || ''}
                           onChange={(e) => {
-                            updateProcessingItem(item.id, 'costProof', e.target.value)
-                            updateProcessingItem(item.id, 'costProofType', 'link')
+                            const value = e.target.value
+                            setLinkInputs({ ...linkInputs, [item.id]: value })
+                            
+                            // Update both fields atomically (clear previous file if any)
+                            const currentItem = processingItems[item.id] || { itemStatus: 'pending' }
+                            const updatedItem = { 
+                              ...currentItem, 
+                              costProof: value,
+                              costProofType: value ? ('link' as CostProofType) : undefined
+                            }
+                            
+                                            setProcessingItems({
+                              ...processingItems,
+                              [item.id]: updatedItem
+                            })
                           }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                           placeholder="Or paste a link to cost proof"
@@ -250,14 +328,15 @@ export default function PurchaserProcessingInterface({
                   </div>
 
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       updateProcessingItem(item.id, 'itemStatus', 'priced')
-                      handleSaveItem(item.id)
+                      // Wait a moment for state update, then save
+                      setTimeout(() => handleSaveItem(item.id), 100)
                     }}
-                    disabled={!processing.actualCost || !processing.costProof}
+                    disabled={!canSave}
                     className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Save Pricing
+                    Save Pricing {!hasCost ? '(Missing Cost)' : !hasProof ? '(Missing Proof)' : '✓'}
                   </button>
                 </div>
 
@@ -279,9 +358,10 @@ export default function PurchaserProcessingInterface({
                   </div>
 
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       updateProcessingItem(item.id, 'itemStatus', 'rejected')
-                      handleSaveItem(item.id)
+                      // Wait a moment for state update, then save
+                      setTimeout(() => handleSaveItem(item.id), 100)
                     }}
                     disabled={!processing.rejectionReason?.trim()}
                     className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"

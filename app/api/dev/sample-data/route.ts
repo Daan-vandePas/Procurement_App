@@ -19,7 +19,6 @@ export async function POST() {
       statuses: ['draft', 'requested', 'waiting_for_approval', 'approved', 'rejected']
     })
   } catch (error) {
-    console.error('Error creating sample data:', error)
     return NextResponse.json(
       { error: 'Failed to create sample data' },
       { status: 500 }
@@ -47,7 +46,6 @@ export async function GET() {
       note: 'You can now visit /requests to see the sample data'
     })
   } catch (error) {
-    console.error('Error creating sample data:', error)
     return NextResponse.json(
       { error: 'Failed to create sample data' },
       { status: 500 }

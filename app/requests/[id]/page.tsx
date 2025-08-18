@@ -419,7 +419,7 @@ export default function RequestDetailPage() {
                       <p className="mt-1 text-sm text-gray-900">{item.quantity}</p>
                     </div>
                     
-                    {item.estimatedCost > 0 && (
+                    {Number(item.estimatedCost) > 0 && (
                       <div>
                         <h5 className="text-sm font-medium text-gray-500">Estimated Cost</h5>
                         <p className="mt-1 text-sm text-gray-900">€{item.estimatedCost}</p>
