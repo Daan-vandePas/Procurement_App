@@ -110,25 +110,6 @@ export const sampleRequests: Request[] = [
         neededByDate: '2025-02-28'
       }
     ]
-  },
-  {
-    id: 'REQ-005',
-    requesterName: 'jim.maloney@batiamosa.be',
-    requestDate: '2025-01-11T16:30:00.000Z',
-    status: 'rejected',
-    items: [
-      {
-        id: 'item-005-1',
-        itemName: 'Premium Coffee Machine',
-        quantity: 1,
-        justification: 'Office morale improvement initiative',
-        supplierName: 'Office Comfort Solutions',
-        supplierReference: 'DELUXE-COFFEE-2000',
-        estimatedCost: 1200.00,
-        priority: 'low',
-        neededByDate: '2025-03-01'
-      }
-    ]
   }
 ]
 

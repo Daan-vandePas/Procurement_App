@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Request, RequestItem, Priority, User, ItemProcessingData, ProcessingUpdate } from '@/lib/types'
+import { Request, RequestItem, Priority, User, ItemProcessingData, ProcessingUpdate, ItemApprovalData, ApprovalUpdate } from '@/lib/types'
 import PurchaserProcessingInterface from '@/components/PurchaserProcessingInterface'
+import CEOApprovalInterface from '@/components/CEOApprovalInterface'
 
 export default function RequestDetailPage() {
   const params = useParams()
@@ -19,6 +20,7 @@ export default function RequestDetailPage() {
   const [processingItems, setProcessingItems] = useState<{[itemId: string]: ItemProcessingData}>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [uploadingFile, setUploadingFile] = useState<string | null>(null)
+  const [approvalItems, setApprovalItems] = useState<{[itemId: string]: ItemApprovalData}>({})
 
   useEffect(() => {
     const fetchData = async () => {
@@ -53,10 +55,26 @@ export default function RequestDetailPage() {
               actualCost: item.actualCost,
               costProof: item.costProof,
               costProofType: item.costProofType,
-              rejectionReason: item.rejectionReason
+              rejectionReason: item.rejectionReason,
+              supplierName: item.supplierName,
+              supplierReference: item.supplierReference
             }
           })
           setProcessingItems(initialProcessing)
+        }
+
+        // Initialize approval state for CEOs
+        if (userData.role === 'ceo' && data.status === 'waiting_for_approval') {
+          const initialApproval: {[itemId: string]: ItemApprovalData} = {}
+          data.items.forEach((item: RequestItem) => {
+            initialApproval[item.id] = {
+              approvalStatus: item.approvalStatus || 'pending_approval',
+              ceoRejectionReason: item.ceoRejectionReason,
+              approvedBy: item.approvedBy,
+              approvedDate: item.approvedDate
+            }
+          })
+          setApprovalItems(initialApproval)
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load data')
@@ -138,6 +156,62 @@ export default function RequestDetailPage() {
     }
   }
 
+  const handleApprovalUpdate = async (update: ApprovalUpdate) => {
+    try {
+      const response = await fetch(`/api/requests/${requestId}/approve`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(update)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to update approval')
+      }
+
+      const updatedRequest = await response.json()
+      setRequest(updatedRequest)
+      
+      // Sync the local approval state with the updated request data
+      const updatedApprovalItems: {[itemId: string]: ItemApprovalData} = {}
+      updatedRequest.items.forEach((item: RequestItem) => {
+        updatedApprovalItems[item.id] = {
+          approvalStatus: item.approvalStatus || 'pending_approval',
+          ceoRejectionReason: item.ceoRejectionReason,
+          approvedBy: item.approvedBy,
+          approvedDate: item.approvedDate
+        }
+      })
+      setApprovalItems(updatedApprovalItems)
+      
+    } catch (error) {
+      throw error
+    }
+  }
+
+  const handleCompleteReview = async () => {
+    setIsSubmitting(true)
+    try {
+      const response = await fetch(`/api/requests/${requestId}/approve`, {
+        method: 'POST'
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to complete review')
+      }
+
+      const result = await response.json()
+      setRequest(result.request)
+      setError(null)
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to complete review')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -268,138 +342,162 @@ export default function RequestDetailPage() {
         </div>
       </div>
 
-      {/* Request Info */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Requester</h3>
-            <div className="mt-1">
-              <div className="text-sm text-gray-900">{request.requesterName.split('@')[0]}</div>
-              <div className="text-xs text-gray-500">@{request.requesterName.split('@')[1]}</div>
-            </div>
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Status</h3>
-            <span className={`mt-1 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(request.status)}`} style={{whiteSpace: 'pre-line', textAlign: 'center'}}>
-              {request.status === 'waiting_for_approval' 
-                ? 'Waiting for\nApproval'
-                : request.status.replace('_', ' ').split(' ').map(word => 
-                    word.charAt(0).toUpperCase() + word.slice(1)
-                  ).join(' ')
-              }
-            </span>
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Date Submitted</h3>
-            <p className="mt-1 text-sm text-gray-900">
-              {new Date(request.requestDate).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-              })}
+      {/* CEO Approval Interface */}
+      {canApprove && (
+        <div className="bg-white rounded-lg shadow">
+          <div className="p-6 border-b border-gray-200">
+            <h3 className="text-lg font-medium text-gray-900">Review Request Items</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Review each item and approve or reject based on business requirements.
             </p>
           </div>
-        </div>
-
-        {/* Items */}
-        <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Requested Items</h3>
-          <div className="space-y-6">
-            {request.items.map((item, index) => (
-              <div key={item.id} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex justify-between items-start mb-4">
-                  <h4 className="text-base font-medium text-gray-900">
-                    Item {index + 1}: {item.itemName}
-                  </h4>
-                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getPriorityColor(item.priority as string)}`}>
-                    {item.priority}
-                  </span>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <h5 className="text-sm font-medium text-gray-500">Quantity</h5>
-                    <p className="mt-1 text-sm text-gray-900">{item.quantity}</p>
-                  </div>
-                  
-                  {item.estimatedCost > 0 && (
-                    <div>
-                      <h5 className="text-sm font-medium text-gray-500">Estimated Cost</h5>
-                      <p className="mt-1 text-sm text-gray-900">€{item.estimatedCost}</p>
-                    </div>
-                  )}
-                  
-                  {item.actualCost && (
-                    <div>
-                      <h5 className="text-sm font-medium text-gray-500">Actual Cost</h5>
-                      <p className="mt-1 text-sm text-gray-900">€{item.actualCost}</p>
-                    </div>
-                  )}
-                  
-                  {item.itemStatus && (
-                    <div>
-                      <h5 className="text-sm font-medium text-gray-500">Item Status</h5>
-                      <span className={`mt-1 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getItemStatusColor(item.itemStatus)}`}>
-                        {item.itemStatus}
-                      </span>
-                    </div>
-                  )}
-                  
-                  {item.supplierName && (
-                    <div>
-                      <h5 className="text-sm font-medium text-gray-500">Supplier</h5>
-                      <p className="mt-1 text-sm text-gray-900">{item.supplierName}</p>
-                    </div>
-                  )}
-                  
-                  {item.supplierReference && (
-                    <div>
-                      <h5 className="text-sm font-medium text-gray-500">Supplier Reference</h5>
-                      <p className="mt-1 text-sm text-gray-900 break-all">{item.supplierReference}</p>
-                    </div>
-                  )}
-                  
-                  {item.neededByDate && (
-                    <div>
-                      <h5 className="text-sm font-medium text-gray-500">Needed By</h5>
-                      <p className="mt-1 text-sm text-gray-900">
-                        {new Date(item.neededByDate).toLocaleDateString()}
-                      </p>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="mt-4">
-                  <h5 className="text-sm font-medium text-gray-500">Justification</h5>
-                  <p className="mt-1 text-sm text-gray-900">{item.justification}</p>
-                </div>
-                
-                {item.rejectionReason && (
-                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
-                    <h5 className="text-sm font-medium text-red-800">Rejection Reason</h5>
-                    <p className="mt-1 text-sm text-red-700">{item.rejectionReason}</p>
-                  </div>
-                )}
-                
-                {item.costProof && (
-                  <div className="mt-4">
-                    <h5 className="text-sm font-medium text-gray-500">Cost Proof</h5>
-                    {item.costProofType === 'link' ? (
-                      <a href={item.costProof} target="_blank" rel="noopener noreferrer" className="mt-1 text-sm text-blue-600 hover:underline break-all">
-                        {item.costProof}
-                      </a>
-                    ) : (
-                      <a href={item.costProof} target="_blank" rel="noopener noreferrer" className="mt-1 text-sm text-blue-600 hover:underline">
-                        View uploaded file
-                      </a>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
+          <div className="p-6">
+            <CEOApprovalInterface
+              items={request.items}
+              onItemUpdate={handleApprovalUpdate}
+              onCompleteReview={handleCompleteReview}
+              approvalItems={approvalItems}
+              setApprovalItems={setApprovalItems}
+              isSubmitting={isSubmitting}
+            />
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Request Info - Only show for non-purchasers and non-CEOs or non-processable/approvable requests */}
+      {!canProcess && !canApprove && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Requester</h3>
+              <div className="mt-1">
+                <div className="text-sm text-gray-900">{request.requesterName.split('@')[0]}</div>
+                <div className="text-xs text-gray-500">@{request.requesterName.split('@')[1]}</div>
+              </div>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Status</h3>
+              <span className={`mt-1 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(request.status)}`} style={{whiteSpace: 'pre-line', textAlign: 'center'}}>
+                {request.status === 'waiting_for_approval' 
+                  ? 'Waiting for\nApproval'
+                  : request.status.replace('_', ' ').split(' ').map(word => 
+                      word.charAt(0).toUpperCase() + word.slice(1)
+                    ).join(' ')
+                }
+              </span>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Date Submitted</h3>
+              <p className="mt-1 text-sm text-gray-900">
+                {new Date(request.requestDate).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric'
+                })}
+              </p>
+            </div>
+          </div>
+
+          {/* Items */}
+          <div>
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Requested Items</h3>
+            <div className="space-y-6">
+              {request.items.map((item, index) => (
+                <div key={item.id} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex justify-between items-start mb-4">
+                    <h4 className="text-base font-medium text-gray-900">
+                      Item {index + 1}: {item.itemName}
+                    </h4>
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getPriorityColor(item.priority as string)}`}>
+                      {item.priority}
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-500">Quantity</h5>
+                      <p className="mt-1 text-sm text-gray-900">{item.quantity}</p>
+                    </div>
+                    
+                    {item.estimatedCost > 0 && (
+                      <div>
+                        <h5 className="text-sm font-medium text-gray-500">Estimated Cost</h5>
+                        <p className="mt-1 text-sm text-gray-900">€{item.estimatedCost}</p>
+                      </div>
+                    )}
+                    
+                    {item.actualCost && (
+                      <div>
+                        <h5 className="text-sm font-medium text-gray-500">Actual Cost</h5>
+                        <p className="mt-1 text-sm text-gray-900">€{item.actualCost}</p>
+                      </div>
+                    )}
+                    
+                    {item.itemStatus && (
+                      <div>
+                        <h5 className="text-sm font-medium text-gray-500">Item Status</h5>
+                        <span className={`mt-1 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getItemStatusColor(item.itemStatus)}`}>
+                          {item.itemStatus}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {item.supplierName && (
+                      <div>
+                        <h5 className="text-sm font-medium text-gray-500">Supplier</h5>
+                        <p className="mt-1 text-sm text-gray-900">{item.supplierName}</p>
+                      </div>
+                    )}
+                    
+                    {item.supplierReference && (
+                      <div>
+                        <h5 className="text-sm font-medium text-gray-500">Supplier Reference</h5>
+                        <p className="mt-1 text-sm text-gray-900 break-all">{item.supplierReference}</p>
+                      </div>
+                    )}
+                    
+                    {item.neededByDate && (
+                      <div>
+                        <h5 className="text-sm font-medium text-gray-500">Needed By</h5>
+                        <p className="mt-1 text-sm text-gray-900">
+                          {new Date(item.neededByDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="mt-4">
+                    <h5 className="text-sm font-medium text-gray-500">Justification</h5>
+                    <p className="mt-1 text-sm text-gray-900">{item.justification}</p>
+                  </div>
+                  
+                  {item.rejectionReason && (
+                    <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                      <h5 className="text-sm font-medium text-red-800">Rejection Reason</h5>
+                      <p className="mt-1 text-sm text-red-700">{item.rejectionReason}</p>
+                    </div>
+                  )}
+                  
+                  {item.costProof && (
+                    <div className="mt-4">
+                      <h5 className="text-sm font-medium text-gray-500">Cost Proof</h5>
+                      {item.costProofType === 'link' ? (
+                        <a href={item.costProof} target="_blank" rel="noopener noreferrer" className="mt-1 text-sm text-blue-600 hover:underline break-all">
+                          {item.costProof}
+                        </a>
+                      ) : (
+                        <a href={item.costProof} target="_blank" rel="noopener noreferrer" className="mt-1 text-sm text-blue-600 hover:underline">
+                          View uploaded file
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Purchaser Processing Interface */}
       {canProcess && (
@@ -426,7 +524,7 @@ export default function RequestDetailPage() {
       )}
 
       {/* Status Info */}
-      {!canEditOriginal && !canProcess && (
+      {!canEditOriginal && !canProcess && !canApprove && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <div className="flex">
             <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
