@@ -1,6 +1,6 @@
 export type Priority = 'urgent' | 'medium' | 'low'
 
-export type RequestStatus = 'draft' | 'requested' | 'waiting_for_approval' | 'approved' | 'rejected'
+export type RequestStatus = 'draft' | 'requested' | 'waiting_for_approval' | 'approval_completed' | 'rejected'
 
 export type UserRole = 'requester' | 'purchaser' | 'ceo'
 
@@ -18,6 +18,7 @@ export interface MagicLinkPayload {
 }
 
 export type ItemStatus = 'pending' | 'priced' | 'rejected'
+export type ItemApprovalStatus = 'pending_approval' | 'approved' | 'rejected'
 export type CostProofType = 'pdf' | 'image' | 'link'
 
 export interface RequestItem {
@@ -37,6 +38,12 @@ export interface RequestItem {
   costProofType?: CostProofType
   rejectionReason?: string
   itemStatus?: ItemStatus
+  
+  // CEO approval workflow fields
+  approvalStatus?: ItemApprovalStatus
+  ceoRejectionReason?: string
+  approvedBy?: string
+  approvedDate?: string
 }
 
 export interface Request {
@@ -49,6 +56,10 @@ export interface Request {
   // Purchaser workflow fields
   processedBy?: string
   processedDate?: string
+  
+  // CEO approval workflow fields
+  approvalCompletedBy?: string
+  approvalCompletedDate?: string
 }
 
 export interface FormErrors {
@@ -64,6 +75,7 @@ export interface FormErrors {
     actualCost?: string
     costProof?: string
     rejectionReason?: string
+    ceoRejectionReason?: string
   }
 }
 
@@ -73,9 +85,23 @@ export interface ItemProcessingData {
   costProofType?: CostProofType
   rejectionReason?: string
   itemStatus: ItemStatus
+  supplierName?: string
+  supplierReference?: string
 }
 
 export interface ProcessingUpdate {
   itemId: string
   data: ItemProcessingData
+}
+
+export interface ItemApprovalData {
+  approvalStatus: ItemApprovalStatus
+  ceoRejectionReason?: string
+  approvedBy?: string
+  approvedDate?: string
+}
+
+export interface ApprovalUpdate {
+  itemId: string
+  data: ItemApprovalData
 }

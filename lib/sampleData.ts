@@ -85,7 +85,7 @@ export const sampleRequests: Request[] = [
     id: 'REQ-004',
     requesterName: 'marc.potier@batiamosa.be',
     requestDate: '2025-01-12T09:20:00.000Z',
-    status: 'approved',
+    status: 'approval_completed',
     items: [
       {
         id: 'item-004-1',

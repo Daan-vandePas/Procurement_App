@@ -45,7 +45,7 @@ export default function RequestsPage() {
         return 'bg-blue-100 text-blue-800'
       case 'waiting_for_approval':
         return 'bg-yellow-100 text-yellow-800'
-      case 'approved':
+      case 'approval_completed':
         return 'bg-green-100 text-green-800'
       case 'rejected':
         return 'bg-red-100 text-red-800'
@@ -71,7 +71,7 @@ export default function RequestsPage() {
       all: requests.length,
       requested: requests.filter(r => r.status === 'requested').length,
       waiting_for_approval: requests.filter(r => r.status === 'waiting_for_approval').length,
-      approved: requests.filter(r => r.status === 'approved').length,
+      approval_completed: requests.filter(r => r.status === 'approval_completed').length,
       rejected: requests.filter(r => r.status === 'rejected').length
     }
   }
@@ -206,14 +206,14 @@ export default function RequestsPage() {
                 Pending Approval ({statusCounts.waiting_for_approval})
               </button>
               <button
-                onClick={() => setFilter('approved')}
+                onClick={() => setFilter('approval_completed')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  filter === 'approved'
+                  filter === 'approval_completed'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                Approved ({statusCounts.approved})
+                Approved ({statusCounts.approval_completed})
               </button>
               <button
                 onClick={() => setFilter('rejected')}

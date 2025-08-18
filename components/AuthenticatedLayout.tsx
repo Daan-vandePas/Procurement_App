@@ -86,7 +86,6 @@ export default function AuthenticatedLayout({ children }: AuthenticatedLayoutPro
 
     // Simplified navigation - same for all users
     return [
-      { href: '/', label: 'New Request' },
       { href: '/requests', label: 'All Requests' }
     ]
   }

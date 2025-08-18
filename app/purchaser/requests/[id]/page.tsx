@@ -193,7 +193,7 @@ export default function PurchaserRequestDetailPage() {
         return 'bg-blue-100 text-blue-800'
       case 'waiting_for_approval':
         return 'bg-yellow-100 text-yellow-800'
-      case 'approved':
+      case 'approval_completed':
         return 'bg-green-100 text-green-800'
       case 'rejected':
         return 'bg-red-100 text-red-800'
@@ -486,7 +486,7 @@ export default function PurchaserRequestDetailPage() {
             </svg>
             <div className="ml-3">
               <p className="text-sm text-yellow-800">
-                This request has been {request.status === 'approved' ? 'approved' : 'rejected'} and cannot be modified.
+                This request has been {request.status === 'approval_completed' ? 'approved' : 'rejected'} and cannot be modified.
               </p>
             </div>
           </div>
