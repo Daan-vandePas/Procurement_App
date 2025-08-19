@@ -33,13 +33,17 @@ export default function RequestForm({ onSubmit, initialData, isEditing = false }
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
+        console.log('🔍 RequestForm: Fetching current user...')
         const response = await fetch('/api/auth/me')
         if (response.ok) {
           const user = await response.json()
+          console.log('✅ RequestForm: User fetched successfully:', user.email, 'Role:', user.role)
           setCurrentUser(user)
+        } else {
+          console.error('❌ RequestForm: Failed to fetch user, status:', response.status)
         }
       } catch (error) {
-        console.error('Failed to fetch current user:', error)
+        console.error('❌ RequestForm: Error fetching current user:', error)
       }
     }
     
@@ -113,6 +117,9 @@ export default function RequestForm({ onSubmit, initialData, isEditing = false }
     setSubmitError(null)
 
     try {
+      console.log('📝 RequestForm: Form submission started')
+      console.log('👤 RequestForm: Current user at submit:', currentUser?.email || 'NO USER LOADED')
+      
       // Create request object
       const request: Request = {
         id: initialData?.id || `req-${Date.now()}`,
@@ -127,9 +134,18 @@ export default function RequestForm({ onSubmit, initialData, isEditing = false }
         status: initialData?.status || 'requested'
       }
 
+      console.log('📦 RequestForm: Request object created:', {
+        id: request.id,
+        requesterName: request.requesterName,
+        status: request.status,
+        itemCount: request.items.length
+      })
+
       // Submit to API
       if (onSubmit) {
+        console.log('🚀 RequestForm: Calling onSubmit...')
         await onSubmit(request)
+        console.log('✅ RequestForm: onSubmit completed successfully')
       }
       
       setIsSubmitted(true)

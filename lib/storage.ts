@@ -64,9 +64,11 @@ const createMemoryStorage = () => ({
 })
 
 export const saveRequest = async (request: Request): Promise<Request> => {
+  console.log('💾 Storage: Saving request:', request.id, 'for requester:', request.requesterName)
   const kv = await initKV()
   const key = `request:${request.id}`
-  await kv.set(key, JSON.stringify(request))
+  const result = await kv.set(key, JSON.stringify(request))
+  console.log('✅ Storage: Request saved with result:', result)
   return request
 }
 
@@ -114,10 +116,16 @@ const getAllRequestsInternal = async (): Promise<Request[]> => {
 }
 
 export const getAllRequests = async (): Promise<Request[]> => {
+  console.log('📚 Storage: Getting all requests...')
   const kv = await initKV()
   const keys = await kv.keys('request:*')
   
-  if (!keys || keys.length === 0) return []
+  console.log('🔑 Storage: Found', keys?.length || 0, 'request keys:', keys)
+  
+  if (!keys || keys.length === 0) {
+    console.log('📭 Storage: No requests found')
+    return []
+  }
   
   const requests: Request[] = []
   
@@ -126,12 +134,15 @@ export const getAllRequests = async (): Promise<Request[]> => {
       const data = await kv.get(key)
       if (data) {
         const request = typeof data === 'string' ? JSON.parse(data) : data
+        console.log('📄 Storage: Retrieved request:', request.id, 'requesterName:', request.requesterName)
         requests.push(request)
       }
     } catch (error) {
-      console.error(`Error retrieving request ${key}:`, error)
+      console.error(`❌ Storage: Error retrieving request ${key}:`, error)
     }
   }
+  
+  console.log('📊 Storage: Total requests retrieved:', requests.length)
   
   // Sort by request date (newest first)
   return requests.sort((a, b) => 
