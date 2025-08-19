@@ -1,44 +1,65 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+
+interface SearchParamsHandlerProps {
+  onError: (error: string) => void
+  onMessage: (message: string) => void
+  onRedirectChange: (redirect: string) => void
+}
+
+function SearchParamsHandler({ onError, onMessage, onRedirectChange }: SearchParamsHandlerProps) {
+  const searchParams = useSearchParams()
+  
+  useEffect(() => {
+    const redirectTo = searchParams.get('redirect') || '/'
+    onRedirectChange(redirectTo)
+    
+    const urlError = searchParams.get('error')
+    const urlMessage = searchParams.get('message')
+    
+    if (urlError) {
+      switch (urlError) {
+        case 'unauthorized-email':
+          onError('This email is not authorized to access the procurement system. Please contact your administrator.')
+          break
+        case 'invalid-token':
+          onError('Invalid or expired magic link. Please request a new one.')
+          break
+        case 'missing-token':
+          onError('Invalid magic link. Please request a new one.')
+          break
+        case 'auth-failed':
+          onError('Authentication failed. Please try again.')
+          break
+        default:
+          onError('An error occurred. Please try again.')
+      }
+    }
+    if (urlMessage === 'logged-out') {
+      onMessage('You have been logged out successfully.')
+    }
+  }, [searchParams, onError, onMessage, onRedirectChange])
+  
+  return null
+}
+
+function SearchParamsLoader() {
+  return (
+    <div className="animate-pulse">
+      <div className="h-4 bg-gray-200 rounded w-3/4 mx-auto"></div>
+    </div>
+  )
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [redirectTo, setRedirectTo] = useState('/')
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const redirectTo = searchParams.get('redirect') || '/'
-  
-  // Handle URL error messages
-  const urlError = searchParams.get('error')
-  const urlMessage = searchParams.get('message')
-  
-  useEffect(() => {
-    if (urlError) {
-      switch (urlError) {
-        case 'unauthorized-email':
-          setError('This email is not authorized to access the procurement system. Please contact your administrator.')
-          break
-        case 'invalid-token':
-          setError('Invalid or expired magic link. Please request a new one.')
-          break
-        case 'missing-token':
-          setError('Invalid magic link. Please request a new one.')
-          break
-        case 'auth-failed':
-          setError('Authentication failed. Please try again.')
-          break
-        default:
-          setError('An error occurred. Please try again.')
-      }
-    }
-    if (urlMessage === 'logged-out') {
-      setMessage('You have been logged out successfully.')
-    }
-  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -88,6 +109,13 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <Suspense fallback={<SearchParamsLoader />}>
+        <SearchParamsHandler 
+          onError={setError}
+          onMessage={setMessage}
+          onRedirectChange={setRedirectTo}
+        />
+      </Suspense>
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
