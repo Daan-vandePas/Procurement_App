@@ -89,29 +89,56 @@ async function sendMagicLinkEmail(email: string, magicLink: string, role: string
   const emailConfig = getEmailConfig()
   
   if (!emailConfig) {
+    console.error('❌ Email configuration is incomplete - cannot send magic link')
     throw new Error('Email configuration is incomplete')
   }
+  
+  console.log('📧 Preparing to send magic link email:', {
+    to: email,
+    recipientOverride: emailConfig.testingOverride,
+    role: role,
+    environment: process.env.NODE_ENV || 'unknown'
+  })
   
   // Use testing email override if configured
   const recipientEmail = emailConfig.testingOverride || email
   
-  // Create optimized nodemailer transporter
-  const transporter = nodemailer.createTransport({
+  // Create robust nodemailer transporter with production-optimized settings
+  const transporterConfig = {
     host: emailConfig.host,
     port: emailConfig.port,
-    secure: emailConfig.port === 465, // true for SSL port 465
-    pool: true, // Enable connection pooling
-    maxConnections: 3, // Maximum number of connections
-    maxMessages: 100, // Maximum messages per connection
+    secure: emailConfig.port === 465, // true for SSL port 465, false for 587 and others
+    pool: true, // Enable connection pooling for better performance
+    maxConnections: 3, // Maximum number of simultaneous connections
+    maxMessages: 100, // Maximum messages per connection before reconnect
     rateLimit: 10, // Limit to 10 messages per second
     auth: {
       user: emailConfig.user,
       pass: emailConfig.pass,
     },
-    connectionTimeout: 10000, // 10 seconds connection timeout
-    greetingTimeout: 5000, // 5 seconds greeting timeout
-    socketTimeout: 30000, // 30 seconds socket timeout
+    // Extended timeouts for better reliability in production
+    connectionTimeout: 15000, // 15 seconds connection timeout
+    greetingTimeout: 10000, // 10 seconds greeting timeout  
+    socketTimeout: 45000, // 45 seconds socket timeout
+    // Additional security and reliability settings
+    requireTLS: true, // Require TLS connection
+    tls: {
+      ciphers: 'SSLv3',
+      rejectUnauthorized: false // Allow self-signed certificates if needed
+    },
+    debug: process.env.NODE_ENV === 'development', // Enable debug logs in development
+    logger: process.env.NODE_ENV === 'development' // Enable detailed logging in development
+  }
+  
+  console.log('📧 Creating transporter with config:', {
+    host: transporterConfig.host,
+    port: transporterConfig.port,
+    secure: transporterConfig.secure,
+    user: transporterConfig.auth.user,
+    hasPassword: !!transporterConfig.auth.pass
   })
+  
+  const transporter = nodemailer.createTransport(transporterConfig)
 
   // Optimized compact HTML template
   const htmlContent = `<!DOCTYPE html>
@@ -142,13 +169,35 @@ async function sendMagicLinkEmail(email: string, magicLink: string, role: string
     }
   }
 
-  // Send the email
-  const result = await transporter.sendMail(mailOptions)
-  
-  // Log successful send (for debugging)
-  if (emailConfig.testingOverride && emailConfig.testingOverride !== email) {
-    console.log(`📧 Email redirected: ${email} → ${emailConfig.testingOverride}`)
+  // Send the email with enhanced error handling
+  try {
+    console.log('📧 Attempting to send email...')
+    const result = await transporter.sendMail(mailOptions)
+    
+    console.log('✅ Email sent successfully:', {
+      messageId: result.messageId,
+      response: result.response?.substring(0, 100) || 'No response details',
+      recipientEmail: recipientEmail
+    })
+    
+    // Log successful send (for debugging)
+    if (emailConfig.testingOverride && emailConfig.testingOverride !== email) {
+      console.log(`📧 Email redirected: ${email} → ${emailConfig.testingOverride}`)
+    }
+    
+    return result
+  } catch (emailError: any) {
+    console.error('❌ Failed to send email:', {
+      error: emailError?.message || 'Unknown error',
+      code: emailError?.code || 'NO_CODE',
+      command: emailError?.command || 'NO_COMMAND',
+      response: emailError?.response || 'NO_RESPONSE',
+      responseCode: emailError?.responseCode || 'NO_RESPONSE_CODE',
+      smtp: `${emailConfig.host}:${emailConfig.port}`,
+      user: emailConfig.user
+    })
+    
+    // Re-throw with more context for better debugging
+    throw new Error(`Email sending failed: ${emailError?.message || 'Unknown error'} (${emailError?.code || 'NO_CODE'})`)
   }
-  
-  return result
 }

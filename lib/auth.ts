@@ -20,29 +20,49 @@ function validateEmailEnvironment(): { isValid: boolean; missingVars: string[] }
 
 export function getEmailConfig() {
   console.log('🔍 Getting email configuration...')
+  console.log('🔍 Environment:', process.env.NODE_ENV || 'unknown')
+  console.log('🔍 Platform:', process.env.VERCEL ? 'Vercel' : 'Local')
   
   // Log individual environment variables (mask sensitive data)
   console.log('📧 EMAIL_FROM:', process.env.EMAIL_FROM || 'MISSING')
   console.log('📧 SMTP_HOST:', process.env.SMTP_HOST || 'MISSING')
   console.log('📧 SMTP_PORT:', process.env.SMTP_PORT || 'MISSING')
   console.log('📧 SMTP_USER:', process.env.SMTP_USER || 'MISSING')
-  console.log('📧 SMTP_PASS:', process.env.SMTP_PASS ? '***SET***' : 'MISSING')
+  console.log('📧 SMTP_PASS:', process.env.SMTP_PASS ? `***SET (${process.env.SMTP_PASS.length} chars)***` : 'MISSING')
   console.log('📧 TESTING_EMAIL_OVERRIDE:', process.env.TESTING_EMAIL_OVERRIDE || 'MISSING')
   
   const validation = validateEmailEnvironment()
   
   if (!validation.isValid) {
     console.error('❌ Email configuration incomplete. Missing variables:', validation.missingVars)
+    console.error('❌ Available env vars:', Object.keys(process.env).filter(key => key.includes('EMAIL') || key.includes('SMTP')))
+    return null
+  }
+  
+  const portNumber = parseInt(process.env.SMTP_PORT!)
+  if (isNaN(portNumber)) {
+    console.error('❌ SMTP_PORT is not a valid number:', process.env.SMTP_PORT)
     return null
   }
   
   const config = {
     from: process.env.EMAIL_FROM!,
     host: process.env.SMTP_HOST!,
-    port: parseInt(process.env.SMTP_PORT!),
+    port: portNumber,
     user: process.env.SMTP_USER!,
     pass: process.env.SMTP_PASS!,
     testingOverride: process.env.TESTING_EMAIL_OVERRIDE
+  }
+  
+  // Additional validation for Gmail configuration
+  if (config.host === 'smtp.gmail.com') {
+    if (config.port !== 465 && config.port !== 587) {
+      console.warn('⚠️ Gmail typically uses port 465 (SSL) or 587 (TLS), but configured port is:', config.port)
+    }
+    if (!config.pass || config.pass.length < 10) {
+      console.error('❌ Gmail App Password appears invalid (should be 16 characters)')
+      return null
+    }
   }
   
   console.log('✅ Email configuration loaded successfully')
@@ -52,7 +72,9 @@ export function getEmailConfig() {
     port: config.port,
     user: config.user,
     hasPassword: !!config.pass,
-    testingOverride: config.testingOverride
+    passwordLength: config.pass?.length || 0,
+    testingOverride: config.testingOverride,
+    isGmail: config.host === 'smtp.gmail.com'
   })
   
   return config
