@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import { RequestItem, FormErrors, Priority, Request } from '@/lib/types'
+import { useState, useCallback, useEffect } from 'react'
+import { RequestItem, FormErrors, Priority, Request, User } from '@/lib/types'
 import { validateAllItems, hasValidationErrors, validateItem } from '@/lib/validation'
 
 interface RequestFormProps {
@@ -28,6 +28,23 @@ export default function RequestForm({ onSubmit, initialData, isEditing = false }
   )
   const [errors, setErrors] = useState<FormErrors>({})
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
+
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await fetch('/api/auth/me')
+        if (response.ok) {
+          const user = await response.json()
+          setCurrentUser(user)
+        }
+      } catch (error) {
+        console.error('Failed to fetch current user:', error)
+      }
+    }
+    
+    fetchCurrentUser()
+  }, [])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
@@ -99,7 +116,7 @@ export default function RequestForm({ onSubmit, initialData, isEditing = false }
       // Create request object
       const request: Request = {
         id: initialData?.id || `req-${Date.now()}`,
-        requesterName: initialData?.requesterName || 'Current User', // TODO: Get from auth context
+        requesterName: initialData?.requesterName || currentUser?.email || 'Unknown User',
         requestDate: initialData?.requestDate || new Date().toISOString(),
         items: items.map(item => ({
           ...item,
