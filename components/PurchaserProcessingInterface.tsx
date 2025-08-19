@@ -153,6 +153,11 @@ export default function PurchaserProcessingInterface({
   }
 
   const canSubmitForApproval = () => {
+    // Don't allow submit if any file is currently uploading
+    if (uploadingFile !== null) {
+      return false
+    }
+    
     return items.every(item => {
       const processing = processingItems[item.id]
       return processing && processing.itemStatus !== 'pending'
@@ -206,7 +211,8 @@ export default function PurchaserProcessingInterface({
           const hasProof = !!processing.costProof && 
                           processing.costProof !== 'undefined' && 
                           processing.costProof.toString().trim().length > 0
-          const canSave = hasCost && hasProof
+          const isUploading = uploadingFile === item.id
+          const canSave = hasCost && hasProof && !isUploading
           const isProcessed = processing.itemStatus !== 'pending'
           const isExpanded = expandedItems[item.id] ?? !isProcessed // Default: expand unprocessed items, collapse processed ones
           
@@ -333,14 +339,22 @@ export default function PurchaserProcessingInterface({
 
                   <button
                     onClick={async () => {
-                      updateProcessingItem(item.id, 'itemStatus', 'priced')
-                      // Wait a moment for state update, then save
-                      setTimeout(() => handleSaveItem(item.id), 100)
+                      try {
+                        // First set the status to 'priced'
+                        updateProcessingItem(item.id, 'itemStatus', 'priced')
+                        
+                        // Wait for state to update, then save immediately
+                        await new Promise(resolve => setTimeout(resolve, 50))
+                        await handleSaveItem(item.id)
+                      } catch (error) {
+                        console.error('Error saving priced item:', error)
+                      }
                     }}
                     disabled={!canSave}
                     className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Save Pricing {!hasCost ? '(Missing Cost)' : !hasProof ? '(Missing Proof)' : '✓'}
+                    {isUploading ? 'Uploading File...' : 
+                     `Save Pricing ${!hasCost ? '(Missing Cost)' : !hasProof ? '(Missing Proof)' : '✓'}`}
                   </button>
                 </div>
 
@@ -397,10 +411,12 @@ export default function PurchaserProcessingInterface({
             </div>
             <button
               onClick={onSubmitForApproval}
-              disabled={isSubmitting}
+              disabled={isSubmitting || uploadingFile !== null}
               className="bg-green-600 text-white py-3 px-6 rounded-md hover:bg-green-700 disabled:opacity-50 font-medium"
             >
-              {isSubmitting ? 'Submitting...' : 'Submit for Approval'}
+              {isSubmitting ? 'Submitting...' : 
+               uploadingFile ? 'Uploading files...' : 
+               'Submit for Approval'}
             </button>
           </div>
         </div>
