@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserFromRequest } from '@/lib/auth'
-import { writeFile } from 'fs/promises'
-import { join } from 'path'
+import { put } from '@vercel/blob'
 
 // Maximum file size: 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -66,34 +65,24 @@ export async function POST(request: NextRequest) {
     const fileExtension = ALLOWED_TYPES[file.type as keyof typeof ALLOWED_TYPES]
     const filename = `cost-proof-${timestamp}-${Math.random().toString(36).substr(2, 9)}.${fileExtension}`
 
-    // Convert file to buffer
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
+    // Upload to Vercel Blob storage
+    const blob = await put(filename, file, {
+      access: 'public',
+      contentType: file.type,
+    })
 
-    // Create uploads directory path (public/uploads/cost-proofs)
-    const uploadDir = join(process.cwd(), 'public', 'uploads', 'cost-proofs')
-    
-    // Create directory if it doesn't exist
-    try {
-      const { mkdir } = await import('fs/promises')
-      await mkdir(uploadDir, { recursive: true })
-    } catch (error) {
-      // Directory already exists or creation failed - continue
-    }
+    console.log(`✅ File uploaded to Vercel Blob: ${filename} -> ${blob.url}`)
 
-    // Save file
-    const filePath = join(uploadDir, filename)
-    await writeFile(filePath, buffer)
-
-    // Return public URL
-    const fileUrl = `/uploads/cost-proofs/${filename}`
+    // Return blob URL
+    const fileUrl = blob.url
 
     return NextResponse.json({
       success: true,
       filename,
       url: fileUrl,
       type: fileExtension,
-      size: file.size
+      size: file.size,
+      blobUrl: blob.url
     })
 
   } catch (error) {
