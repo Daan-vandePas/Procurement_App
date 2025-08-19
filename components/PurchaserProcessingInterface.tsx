@@ -65,14 +65,18 @@ export default function PurchaserProcessingInterface({
         body: formData
       })
       
+      const result = await response.json()
+      
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Upload failed')
+        throw new Error(result.error || 'Upload failed')
       }
       
-      const result = await response.json()
+      if (!result.success) {
+        throw new Error(result.error || 'Upload failed')
+      }
+      
       // Update the processing item with file info
-      const fileUrl = result.url || result.filePath || result.path
+      const fileUrl = result.url || result.blobUrl
       
       if (!fileUrl) {
         throw new Error('Upload succeeded but no file URL returned')
