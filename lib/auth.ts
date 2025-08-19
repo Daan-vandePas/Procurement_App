@@ -7,6 +7,35 @@ const MAGIC_LINK_SECRET = process.env.MAGIC_LINK_SECRET || 'fallback-magic-secre
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h'
 const MAGIC_LINK_EXPIRES_IN = process.env.MAGIC_LINK_EXPIRES_IN || '15m'
 
+// Email configuration validation
+function validateEmailEnvironment(): { isValid: boolean; missingVars: string[] } {
+  const requiredVars = ['EMAIL_FROM', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS']
+  const missingVars = requiredVars.filter(varName => !process.env[varName])
+  
+  return {
+    isValid: missingVars.length === 0,
+    missingVars
+  }
+}
+
+export function getEmailConfig() {
+  const validation = validateEmailEnvironment()
+  
+  if (!validation.isValid) {
+    console.warn('Email configuration incomplete. Missing variables:', validation.missingVars)
+    return null
+  }
+  
+  return {
+    from: process.env.EMAIL_FROM!,
+    host: process.env.SMTP_HOST!,
+    port: parseInt(process.env.SMTP_PORT!),
+    user: process.env.SMTP_USER!,
+    pass: process.env.SMTP_PASS!,
+    testingOverride: process.env.TESTING_EMAIL_OVERRIDE
+  }
+}
+
 export function isAuthorizedEmail(email: string): boolean {
   const ceoEmails = process.env.CEO_EMAILS?.split(',').map(e => e.trim()) || []
   const purchaserEmails = process.env.PURCHASER_EMAILS?.split(',').map(e => e.trim()) || []
