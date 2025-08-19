@@ -95,99 +95,51 @@ async function sendMagicLinkEmail(email: string, magicLink: string, role: string
   // Use testing email override if configured
   const recipientEmail = emailConfig.testingOverride || email
   
-  // Create nodemailer transporter
+  // Create optimized nodemailer transporter
   const transporter = nodemailer.createTransport({
     host: emailConfig.host,
     port: emailConfig.port,
-    secure: false, // true for 465, false for other ports
+    secure: emailConfig.port === 465, // true for SSL port 465
+    pool: true, // Enable connection pooling
+    maxConnections: 3, // Maximum number of connections
+    maxMessages: 100, // Maximum messages per connection
+    rateLimit: 10, // Limit to 10 messages per second
     auth: {
       user: emailConfig.user,
       pass: emailConfig.pass,
     },
+    connectionTimeout: 10000, // 10 seconds connection timeout
+    greetingTimeout: 5000, // 5 seconds greeting timeout
+    socketTimeout: 30000, // 30 seconds socket timeout
   })
 
-  // Email HTML template
-  const htmlContent = `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Sign in to Procurement System</title>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background-color: #1e40af; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-        .content { background-color: #f8fafc; padding: 30px; border-radius: 0 0 8px 8px; }
-        .button { display: inline-block; background-color: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 20px 0; }
-        .footer { font-size: 12px; color: #6b7280; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; }
-        .warning { background-color: #fef3c7; border: 1px solid #f59e0b; padding: 15px; border-radius: 6px; margin: 20px 0; }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <h1>Procurement System</h1>
-        <p>Secure Sign-In Request</p>
-      </div>
-      
-      <div class="content">
-        <h2>Hello!</h2>
-        <p>You requested to sign in to the Procurement System with role: <strong>${role}</strong></p>
-        
-        <p>Click the button below to securely sign in to your account:</p>
-        
-        <p style="text-align: center;">
-          <a href="${magicLink}" class="button">Sign In to Procurement System</a>
-        </p>
-        
-        <div class="warning">
-          <strong>⚠️ Security Notice:</strong>
-          <ul>
-            <li>This link will expire in <strong>15 minutes</strong></li>
-            <li>Only use this link if you requested access</li>
-            <li>Never share this link with others</li>
-          </ul>
-        </div>
-        
-        <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
-        <p style="word-break: break-all; background-color: #e5e7eb; padding: 10px; border-radius: 4px; font-family: monospace;">
-          ${magicLink}
-        </p>
-        
-        <p>If you didn't request this sign-in link, please ignore this email. Your account remains secure.</p>
-      </div>
-      
-      <div class="footer">
-        <p>This email was sent by the Procurement System. Do not reply to this email.</p>
-        <p>For support, contact your system administrator.</p>
-      </div>
-    </body>
-    </html>
-  `
+  // Optimized compact HTML template
+  const htmlContent = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>body{font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;background:#f5f5f5}
+.card{background:white;border-radius:8px;overflow:hidden;box-shadow:0 2px 4px rgba(0,0,0,0.1)}
+.header{background:#1e40af;color:white;padding:20px;text-align:center}
+.content{padding:30px}.button{display:inline-block;background:#3b82f6;color:white;padding:12px 24px;text-decoration:none;border-radius:4px;font-weight:bold}
+.footer{padding:20px;background:#f8f9fa;font-size:12px;color:#666;text-align:center}</style>
+</head><body><div class="card"><div class="header"><h1 style="margin:0">Procurement System</h1><p style="margin:5px 0 0">Sign In Request</p></div>
+<div class="content"><p>Hello! Click the button below to sign in as <strong>${role}</strong>:</p>
+<p style="text-align:center;margin:25px 0"><a href="${magicLink}" class="button">Sign In</a></p>
+<p style="background:#fff3cd;padding:10px;border-radius:4px;font-size:14px"><strong>⚠️ Link expires in 15 minutes</strong></p>
+<p style="font-size:12px;color:#666">If the button doesn't work: <a href="${magicLink}">${magicLink}</a></p>
+</div><div class="footer">Procurement System - Do not reply to this email</div></div></body></html>`
 
   const mailOptions = {
     from: `"Procurement System" <${emailConfig.from}>`,
     to: recipientEmail,
     subject: 'Sign in to Procurement System',
     html: htmlContent,
-    text: `
-      Sign in to Procurement System
-      
-      Hello!
-      
-      You requested to sign in to the Procurement System with role: ${role}
-      
-      Click the link below to securely sign in to your account:
-      ${magicLink}
-      
-      Security Notice:
-      - This link will expire in 15 minutes
-      - Only use this link if you requested access
-      - Never share this link with others
-      
-      If you didn't request this sign-in link, please ignore this email.
-      
-      This email was sent by the Procurement System.
-    `
+    text: `Sign in to Procurement System\n\nHello! Click this link to sign in as ${role}:\n${magicLink}\n\n⚠️ Link expires in 15 minutes\n\nProcurement System - Do not reply`,
+    priority: 'high' as const, // Higher priority for faster delivery
+    headers: {
+      'X-Priority': '1',
+      'X-MSMail-Priority': 'High',
+      'Importance': 'high'
+    }
   }
 
   // Send the email

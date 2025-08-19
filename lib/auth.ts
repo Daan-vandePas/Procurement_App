@@ -19,14 +19,24 @@ function validateEmailEnvironment(): { isValid: boolean; missingVars: string[] }
 }
 
 export function getEmailConfig() {
+  console.log('🔍 Getting email configuration...')
+  
+  // Log individual environment variables (mask sensitive data)
+  console.log('📧 EMAIL_FROM:', process.env.EMAIL_FROM || 'MISSING')
+  console.log('📧 SMTP_HOST:', process.env.SMTP_HOST || 'MISSING')
+  console.log('📧 SMTP_PORT:', process.env.SMTP_PORT || 'MISSING')
+  console.log('📧 SMTP_USER:', process.env.SMTP_USER || 'MISSING')
+  console.log('📧 SMTP_PASS:', process.env.SMTP_PASS ? '***SET***' : 'MISSING')
+  console.log('📧 TESTING_EMAIL_OVERRIDE:', process.env.TESTING_EMAIL_OVERRIDE || 'MISSING')
+  
   const validation = validateEmailEnvironment()
   
   if (!validation.isValid) {
-    console.warn('Email configuration incomplete. Missing variables:', validation.missingVars)
+    console.error('❌ Email configuration incomplete. Missing variables:', validation.missingVars)
     return null
   }
   
-  return {
+  const config = {
     from: process.env.EMAIL_FROM!,
     host: process.env.SMTP_HOST!,
     port: parseInt(process.env.SMTP_PORT!),
@@ -34,6 +44,18 @@ export function getEmailConfig() {
     pass: process.env.SMTP_PASS!,
     testingOverride: process.env.TESTING_EMAIL_OVERRIDE
   }
+  
+  console.log('✅ Email configuration loaded successfully')
+  console.log('📧 Config summary:', {
+    from: config.from,
+    host: config.host,
+    port: config.port,
+    user: config.user,
+    hasPassword: !!config.pass,
+    testingOverride: config.testingOverride
+  })
+  
+  return config
 }
 
 export function isAuthorizedEmail(email: string): boolean {
