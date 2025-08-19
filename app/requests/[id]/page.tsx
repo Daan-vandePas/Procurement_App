@@ -134,9 +134,65 @@ export default function RequestDetailPage() {
     }
   }
 
+  // Pre-submit validation: Check database state before submitting
+  const validateRequestForSubmission = async () => {
+    try {
+      console.log('🔍 Pre-submit: Validating request state in database...')
+      
+      // Fetch current request state from database
+      const response = await fetch(`/api/requests/${requestId}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch request state')
+      }
+      
+      const currentRequest = await response.json()
+      console.log('📊 Pre-submit: Current request items:', currentRequest.items.map((item: any) => ({
+        id: item.id,
+        itemName: item.itemName,
+        itemStatus: item.itemStatus || 'pending'
+      })))
+      
+      // Check all items are processed
+      const unprocessedItems = currentRequest.items.filter((item: any) => 
+        !item.itemStatus || item.itemStatus === 'pending'
+      )
+      
+      if (unprocessedItems.length > 0) {
+        const itemNames = unprocessedItems.map((item: any) => item.itemName).join(', ')
+        return {
+          isValid: false,
+          errorMessage: `${unprocessedItems.length} item(s) still need processing: ${itemNames}. Please save all pricing information first.`
+        }
+      }
+      
+      console.log('✅ Pre-submit: All items are processed in database')
+      return { isValid: true, errorMessage: null }
+      
+    } catch (error) {
+      console.error('❌ Pre-submit validation error:', error)
+      return {
+        isValid: false,
+        errorMessage: 'Unable to verify request state. Please try again.'
+      }
+    }
+  }
+
   const handleSubmitForApproval = async () => {
     setIsSubmitting(true)
     try {
+      console.log('🚀 Submit: Starting submission process...')
+      
+      // Step 1: Validate database state
+      const validation = await validateRequestForSubmission()
+      if (!validation.isValid) {
+        console.error('❌ Submit: Pre-validation failed:', validation.errorMessage)
+        setError(validation.errorMessage!)
+        return
+      }
+      
+      console.log('✅ Submit: Pre-validation passed, proceeding with submission...')
+      
+      // Step 2: Proceed with actual submission
       const response = await fetch(`/api/requests/${requestId}/process`, {
         method: 'POST'
       })

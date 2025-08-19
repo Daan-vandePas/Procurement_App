@@ -414,7 +414,7 @@ export default function PurchaserProcessingInterface({
               disabled={isSubmitting || uploadingFile !== null}
               className="bg-green-600 text-white py-3 px-6 rounded-md hover:bg-green-700 disabled:opacity-50 font-medium"
             >
-              {isSubmitting ? 'Submitting...' : 
+              {isSubmitting ? 'Validating & Submitting...' : 
                uploadingFile ? 'Uploading files...' : 
                'Submit for Approval'}
             </button>

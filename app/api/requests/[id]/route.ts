@@ -7,18 +7,26 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    console.log('📥 API: Fetching request by ID:', params.id)
     const requestData = await getRequest(params.id)
     
     if (!requestData) {
+      console.log('❌ API: Request not found:', params.id)
       return NextResponse.json(
         { error: 'Request not found' },
         { status: 404 }
       )
     }
     
+    console.log('✅ API: Request found, items status:', requestData.items.map((item: any) => ({
+      id: item.id,
+      itemName: item.itemName,
+      itemStatus: item.itemStatus || 'pending'
+    })))
+    
     return NextResponse.json(requestData)
   } catch (error) {
-    console.error('Error fetching request:', error)
+    console.error('❌ API: Error fetching request:', error)
     return NextResponse.json(
       { error: 'Failed to fetch request' },
       { status: 500 }
