@@ -79,7 +79,7 @@ export default function LoginPage() {
     setMessage('')
 
     try {
-      const response = await fetch('/api/auth/magic', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -90,10 +90,14 @@ export default function LoginPage() {
       const data = await response.json()
 
       if (response.ok) {
-        setMessage('Magic link sent! Check your email and click the link to sign in.')
+        setMessage('Login successful! Redirecting...')
         setEmail('')
+        // Redirect to main application
+        setTimeout(() => {
+          window.location.href = '/requests'
+        }, 1000)
       } else {
-        setError(data.error || 'Failed to send magic link')
+        setError(data.error || 'Login failed')
       }
     } catch (error) {
       setError('Something went wrong. Please try again.')
@@ -122,7 +126,7 @@ export default function LoginPage() {
             Sign in to Procurement System
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Enter your email to receive a secure sign-in link
+            Enter your work email address to sign in
           </p>
         </div>
         
@@ -172,7 +176,7 @@ export default function LoginPage() {
                   Sending...
                 </span>
               ) : (
-                'Send Magic Link'
+                'Sign In'
               )}
             </button>
           </div>
@@ -182,7 +186,7 @@ export default function LoginPage() {
           <p className="text-xs text-gray-500">
             Secure, passwordless authentication
             <br />
-            Magic links expire in 15 minutes
+            For authorized company emails only
           </p>
         </div>
       </div>
