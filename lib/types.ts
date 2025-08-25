@@ -1,6 +1,6 @@
 export type Priority = 'urgent' | 'medium' | 'low'
 
-export type RequestStatus = 'draft' | 'requested' | 'waiting_for_approval' | 'approval_completed' | 'rejected'
+export type RequestStatus = 'draft' | 'requested' | 'waiting_for_approval' | 'approval_completed' | 'rejected' | 'processed'
 
 export type UserRole = 'requester' | 'purchaser' | 'ceo'
 

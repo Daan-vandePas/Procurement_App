@@ -155,10 +155,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Determine final request status based on item approvals
     const hasApprovedItems = existingRequest.items.some(item => item.approvalStatus === 'approved')
     const hasRejectedItems = existingRequest.items.some(item => item.approvalStatus === 'rejected')
+    const allApproved = existingRequest.items.every(item => item.approvalStatus === 'approved')
+    const allRejected = existingRequest.items.every(item => item.approvalStatus === 'rejected')
     
-    // Business logic: If any item is rejected, the whole request is rejected
-    // Only if ALL items are approved, the request becomes approval_completed
-    const finalStatus: RequestStatus = hasRejectedItems ? 'rejected' : 'approval_completed'
+    // Business logic: 
+    // - All approved -> 'approval_completed'
+    // - All rejected -> 'rejected'  
+    // - Mixed (some approved, some rejected) -> 'processed'
+    let finalStatus: RequestStatus
+    if (allApproved) {
+      finalStatus = 'approval_completed'
+    } else if (allRejected) {
+      finalStatus = 'rejected'
+    } else {
+      // Mixed approvals/rejections
+      finalStatus = 'processed'
+    }
 
     // Update request status and add approval metadata
     const updatedRequest = {

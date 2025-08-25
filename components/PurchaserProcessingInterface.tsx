@@ -34,6 +34,9 @@ export default function PurchaserProcessingInterface({
   const [savingItems, setSavingItems] = useState<{[itemId: string]: boolean}>({})
   const [verifiedItems, setVerifiedItems] = useState<{[itemId: string]: boolean}>({})
   const [verificationErrors, setVerificationErrors] = useState<{[itemId: string]: string}>({})
+  
+  // Track last successfully saved data to determine if changes were made
+  const [lastSavedData, setLastSavedData] = useState<{[itemId: string]: ItemProcessingData}>({})
 
   const toggleItemExpansion = (itemId: string) => {
     setExpandedItems({
@@ -271,6 +274,8 @@ export default function PurchaserProcessingInterface({
         console.log('✅ Item verified successfully in backend:', itemId)
         setVerifiedItems(prev => ({ ...prev, [itemId]: true }))
         setErrors(prev => ({ ...prev, [itemId]: '' }))
+        // Store the successfully saved data for change detection
+        setLastSavedData(prev => ({ ...prev, [itemId]: itemData }))
         // Collapse the item after successful save and verification
         setExpandedItems(prev => ({ ...prev, [itemId]: false }))
       } else {
@@ -303,6 +308,35 @@ export default function PurchaserProcessingInterface({
       const processing = processingItems[item.id]
       return processing && processing.itemStatus !== 'pending'
     }).length
+  }
+
+  // Check if current item data differs from last successfully saved data
+  const hasDataChanged = (itemId: string): boolean => {
+    const currentData = processingItems[itemId]
+    const savedData = lastSavedData[itemId]
+    
+    if (!currentData || !savedData) return true
+    
+    // Compare relevant fields for pricing
+    if (currentData.itemStatus === 'priced' || savedData.itemStatus === 'priced') {
+      return (
+        currentData.actualCost !== savedData.actualCost ||
+        currentData.costProof !== savedData.costProof ||
+        currentData.supplierName !== savedData.supplierName ||
+        currentData.supplierReference !== savedData.supplierReference ||
+        currentData.itemStatus !== savedData.itemStatus
+      )
+    }
+    
+    // Compare relevant fields for rejection
+    if (currentData.itemStatus === 'rejected' || savedData.itemStatus === 'rejected') {
+      return (
+        currentData.rejectionReason !== savedData.rejectionReason ||
+        currentData.itemStatus !== savedData.itemStatus
+      )
+    }
+    
+    return true
   }
 
   const canSubmitForApproval = () => {
@@ -396,7 +430,8 @@ export default function PurchaserProcessingInterface({
           const isUploading = uploadingFile === item.id
           const isSaving = savingItems[item.id]
           const isVerified = verifiedItems[item.id]
-          const canSave = hasCost && hasProof && !isUploading && !isSaving
+          const dataChanged = hasDataChanged(item.id)
+          const canSave = hasCost && hasProof && !isUploading && !isSaving && (!isVerified || dataChanged)
           const isProcessed = processing.itemStatus !== 'pending'
           const isExpanded = expandedItems[item.id] ?? !isProcessed // Default: expand unprocessed items, collapse processed ones
           
@@ -563,7 +598,8 @@ export default function PurchaserProcessingInterface({
                   >
                     {isUploading ? 'Uploading File...' : 
                      isSaving ? 'Saving & Verifying...' :
-                     isVerified ? '✅ Verified in Database' :
+                     isVerified && !dataChanged ? '✅ Pricing Saved & Verified' :
+                     isVerified && dataChanged ? 'Save Updated Pricing' :
                      `Save Pricing ${!hasCost ? '(Missing Cost)' : !hasProof ? '(Missing Proof)' : '✓'}`}
                   </button>
                 </div>
@@ -605,12 +641,13 @@ export default function PurchaserProcessingInterface({
                         console.error('Error rejecting item:', error)
                       }
                     }}
-                    disabled={!processing.rejectionReason?.trim() || isSaving}
+                    disabled={!processing.rejectionReason?.trim() || isSaving || (isVerified && !dataChanged)}
                     className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSaving ? 'Rejecting & Verifying...' :
-                     processing.itemStatus === 'rejected' && isVerified ? '✅ Rejection Verified' :
-                     'Reject Item'}
+                     isVerified && !dataChanged ? '✅ Rejection Saved & Verified' :
+                     isVerified && dataChanged ? 'Save Updated Rejection' :
+                     `Reject Item ${!processing.rejectionReason?.trim() ? '(Missing Reason)' : '✓'}`}
                   </button>
                 </div>
               </div>
