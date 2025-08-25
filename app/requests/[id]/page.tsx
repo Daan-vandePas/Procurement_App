@@ -161,7 +161,7 @@ export default function RequestDetailPage() {
         const itemNames = unprocessedItems.map((item: any) => item.itemName).join(', ')
         return {
           isValid: false,
-          errorMessage: `${unprocessedItems.length} item(s) still need processing: ${itemNames}. Please save all pricing information first.`
+          errorMessage: `${unprocessedItems.length} item(s) still need processing: ${itemNames}. Please either add pricing information or reject these items.`
         }
       }
       

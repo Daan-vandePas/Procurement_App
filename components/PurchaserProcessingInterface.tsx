@@ -46,6 +46,26 @@ export default function PurchaserProcessingInterface({
     const currentItem = processingItems[itemId] || { itemStatus: 'pending' }
     const updatedItem = { ...currentItem, [field]: value }
     
+    // If changing item status, clear verification state 
+    if (field === 'itemStatus') {
+      console.log(`🔄 Changing item ${itemId} status from ${currentItem.itemStatus} to ${value}`)
+      
+      // Clear verification status when changing item status
+      const newVerifiedItems = { ...verifiedItems }
+      delete newVerifiedItems[itemId]
+      setVerifiedItems(newVerifiedItems)
+      
+      // Clear verification errors
+      const newVerificationErrors = { ...verificationErrors }
+      delete newVerificationErrors[itemId]
+      setVerificationErrors(newVerificationErrors)
+      
+      // If changing to rejected, clear cost-related fields that aren't needed
+      if (value === 'rejected') {
+        console.log(`🔴 Item ${itemId} being rejected - cost proof not required`)
+        // Don't clear cost fields in case user wants to switch back, but ensure validation doesn't require them
+      }
+    }
     
     setProcessingItems({
       ...processingItems,
@@ -95,12 +115,22 @@ export default function PurchaserProcessingInterface({
           verificationChecks.push(`Cost proof type: expected '${expectedData.costProofType}', got '${item.costProofType || 'undefined'}'`)
         }
       } else if (expectedData.itemStatus === 'rejected') {
+        console.log('🔴 Verifying REJECTED item - cost proof should NOT be checked:', {
+          expectedStatus: expectedData.itemStatus,
+          actualStatus: item.itemStatus,
+          expectedReason: expectedData.rejectionReason,
+          actualReason: item.rejectionReason
+        })
+        
         if (item.itemStatus !== 'rejected') {
           verificationChecks.push(`Item status: expected 'rejected', got '${item.itemStatus || 'undefined'}'`)
         }
         if (!item.rejectionReason || item.rejectionReason !== expectedData.rejectionReason) {
           verificationChecks.push(`Rejection reason: expected '${expectedData.rejectionReason}', got '${item.rejectionReason || 'undefined'}'`)
         }
+        
+        // For rejected items, we explicitly do NOT check cost proof fields
+        console.log('✅ Rejected item verification complete - cost fields ignored as expected')
       }
       
       if (verificationChecks.length > 0) {
@@ -211,7 +241,15 @@ export default function PurchaserProcessingInterface({
     setVerificationErrors(newVerificationErrors)
 
     try {
-      console.log('💾 Saving item to backend:', itemId, itemData)
+      if (itemData.itemStatus === 'rejected') {
+        console.log('🔴 Saving REJECTED item to backend:', itemId, {
+          itemStatus: itemData.itemStatus,
+          rejectionReason: itemData.rejectionReason,
+          note: 'Cost proof should NOT be required for rejected items'
+        })
+      } else {
+        console.log('💾 Saving item to backend:', itemId, itemData)
+      }
       
       // Step 1: Save to backend
       await onItemUpdate({ itemId, data: itemData })
@@ -534,9 +572,17 @@ export default function PurchaserProcessingInterface({
 
                   <button
                     onClick={async () => {
-                      updateProcessingItem(item.id, 'itemStatus', 'rejected')
-                      // Wait a moment for state update, then save
-                      setTimeout(() => handleSaveItem(item.id), 100)
+                      try {
+                        console.log('🔴 Rejecting item:', item.id, processing.rejectionReason)
+                        // First set the status to 'rejected'
+                        updateProcessingItem(item.id, 'itemStatus', 'rejected')
+                        
+                        // Wait for state to update, then save immediately
+                        await new Promise(resolve => setTimeout(resolve, 50))
+                        await handleSaveItem(item.id)
+                      } catch (error) {
+                        console.error('Error rejecting item:', error)
+                      }
                     }}
                     disabled={!processing.rejectionReason?.trim() || isSaving}
                     className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -569,8 +615,9 @@ export default function PurchaserProcessingInterface({
                     <button
                       onClick={async () => {
                         try {
+                          console.log('🔄 Retrying save for item:', item.id, 'current status:', processing.itemStatus)
                           updateProcessingItem(item.id, 'itemStatus', processing.itemStatus === 'rejected' ? 'rejected' : 'priced')
-                          await new Promise(resolve => setTimeout(resolve, 100))
+                          await new Promise(resolve => setTimeout(resolve, 50))
                           await handleSaveItem(item.id)
                         } catch (error) {
                           console.error('Error during retry:', error)
