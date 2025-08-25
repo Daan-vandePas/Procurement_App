@@ -192,13 +192,13 @@ export default function PurchaserProcessingInterface({
       })
       
       // Clear the link input when a file is uploaded
-      setLinkInputs({ ...linkInputs, [itemId]: '' })
+      setLinkInputs(prev => ({ ...prev, [itemId]: '' }))
       
     } catch (error) {
-      setErrors({
-        ...errors,
+      setErrors(prev => ({
+        ...prev,
         [itemId]: error instanceof Error ? error.message : 'Upload failed'
-      })
+      }))
     } finally {
       setUploadingFile(null)
     }
@@ -224,12 +224,12 @@ export default function PurchaserProcessingInterface({
     }
     
     if (validationError) {
-      setErrors({ ...errors, [itemId]: validationError })
+      setErrors(prev => ({ ...prev, [itemId]: validationError }))
       return
     }
 
     // Set saving state
-    setSavingItems({ ...savingItems, [itemId]: true })
+    setSavingItems(prev => ({ ...prev, [itemId]: true }))
     
     // Clear previous verification status
     const newVerifiedItems = { ...verifiedItems }
@@ -261,32 +261,32 @@ export default function PurchaserProcessingInterface({
       if (verificationResult.success) {
         // Success: Mark as verified and clear errors
         console.log('✅ Item verified successfully in backend:', itemId)
-        setVerifiedItems({ ...verifiedItems, [itemId]: true })
-        setErrors({ ...errors, [itemId]: '' })
+        setVerifiedItems(prev => ({ ...prev, [itemId]: true }))
+        setErrors(prev => ({ ...prev, [itemId]: '' }))
         // Collapse the item after successful save and verification
-        setExpandedItems({ ...expandedItems, [itemId]: false })
+        setExpandedItems(prev => ({ ...prev, [itemId]: false }))
       } else {
         // Verification failed: Show error but don't mark as verified
         console.error('❌ Backend verification failed:', verificationResult.error)
-        setVerificationErrors({ 
-          ...verificationErrors, 
+        setVerificationErrors(prev => ({ 
+          ...prev, 
           [itemId]: verificationResult.error || 'Backend verification failed' 
-        })
-        setErrors({ 
-          ...errors, 
+        }))
+        setErrors(prev => ({ 
+          ...prev, 
           [itemId]: `Save completed but verification failed: ${verificationResult.error}. Please try saving again.` 
-        })
+        }))
       }
       
     } catch (error) {
       console.error('❌ Save failed:', error)
-      setErrors({
-        ...errors,
+      setErrors(prev => ({
+        ...prev,
         [itemId]: error instanceof Error ? error.message : 'Failed to save item'
-      })
+      }))
     } finally {
       // Clear saving state
-      setSavingItems({ ...savingItems, [itemId]: false })
+      setSavingItems(prev => ({ ...prev, [itemId]: false }))
     }
   }
 
@@ -502,7 +502,7 @@ export default function PurchaserProcessingInterface({
                           value={linkInputs[item.id] || ''}
                           onChange={(e) => {
                             const value = e.target.value
-                            setLinkInputs({ ...linkInputs, [item.id]: value })
+                            setLinkInputs(prev => ({ ...prev, [item.id]: value }))
                             
                             // Update both fields atomically (clear previous file if any)
                             const currentItem = processingItems[item.id] || { itemStatus: 'pending' }
