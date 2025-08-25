@@ -153,22 +153,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Determine final request status based on item approvals
-    const hasApprovedItems = existingRequest.items.some(item => item.approvalStatus === 'approved')
-    const hasRejectedItems = existingRequest.items.some(item => item.approvalStatus === 'rejected')
-    const allApproved = existingRequest.items.every(item => item.approvalStatus === 'approved')
-    const allRejected = existingRequest.items.every(item => item.approvalStatus === 'rejected')
+    // Only consider items that were not already rejected by the purchaser
+    const itemsForApproval = existingRequest.items.filter(item => item.itemStatus !== 'rejected')
+    
+    const hasApprovedItems = itemsForApproval.some(item => item.approvalStatus === 'approved')
+    const hasRejectedItems = itemsForApproval.some(item => item.approvalStatus === 'rejected')
+    const allApproved = itemsForApproval.every(item => item.approvalStatus === 'approved')
+    const allRejected = itemsForApproval.every(item => item.approvalStatus === 'rejected')
     
     // Business logic: 
-    // - All approved -> 'approval_completed'
-    // - All rejected -> 'rejected'  
-    // - Mixed (some approved, some rejected) -> 'processed'
+    // - All approved (and no items needing approval were rejected by purchaser) -> 'approval_completed'
+    // - Any approver action (approved, rejected, or mixed) -> 'processed'
     let finalStatus: RequestStatus
-    if (allApproved) {
+    if (allApproved && itemsForApproval.length > 0) {
       finalStatus = 'approval_completed'
-    } else if (allRejected) {
-      finalStatus = 'rejected'
     } else {
-      // Mixed approvals/rejections
+      // Any items approved or rejected by CEO -> processed status
+      // This ensures that even if some items are rejected, the overall status is 'processed'
       finalStatus = 'processed'
     }
 

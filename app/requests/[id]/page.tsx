@@ -542,8 +542,8 @@ export default function RequestDetailPage() {
                           {item.costProof}
                         </a>
                       ) : (
-                        <a href={item.costProof} target="_blank" rel="noopener noreferrer" className="mt-1 text-sm text-blue-600 hover:underline">
-                          View uploaded file
+                        <a href={item.costProof} target="_blank" rel="noopener noreferrer" className="mt-1 text-sm text-blue-600 hover:underline" download>
+                          View/Download uploaded file
                         </a>
                       )}
                     </div>

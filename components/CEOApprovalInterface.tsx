@@ -155,19 +155,25 @@ export default function CEOApprovalInterface({
   }
 
   const getApprovalSummary = () => {
-    const approved = items.filter(item => 
+    // Only consider items that need CEO approval (not rejected by purchaser)
+    const itemsForApproval = items.filter(item => item.itemStatus !== 'rejected')
+    
+    const approved = itemsForApproval.filter(item => 
       (approvalItems[item.id]?.approvalStatus || item.approvalStatus) === 'approved'
     ).length
-    const rejected = items.filter(item => 
+    const rejected = itemsForApproval.filter(item => 
       (approvalItems[item.id]?.approvalStatus || item.approvalStatus) === 'rejected'
     ).length
-    const pending = items.length - approved - rejected
+    const pending = itemsForApproval.length - approved - rejected
+    const rejectedByPurchaser = items.filter(item => item.itemStatus === 'rejected').length
 
-    return { approved, rejected, pending }
+    return { approved, rejected, pending, rejectedByPurchaser, totalItems: itemsForApproval.length }
   }
 
   const canCompleteReview = () => {
-    return items.every(item => {
+    // Only items that need CEO approval (not rejected by purchaser) need to be reviewed
+    const itemsForApproval = items.filter(item => item.itemStatus !== 'rejected')
+    return itemsForApproval.every(item => {
       const status = approvalItems[item.id]?.approvalStatus || item.approvalStatus
       return status === 'approved' || status === 'rejected'
     })
@@ -206,13 +212,20 @@ export default function CEOApprovalInterface({
             <p className="text-sm font-medium text-blue-800">
               Review Progress: {summary.approved} approved, {summary.rejected} rejected, {summary.pending} pending
             </p>
+            {summary.rejectedByPurchaser > 0 && (
+              <p className="text-xs text-blue-600 mt-1">
+                ({summary.rejectedByPurchaser} items already rejected by purchaser - no action needed)
+              </p>
+            )}
           </div>
         </div>
       </div>
 
       {/* Items */}
       <div className="space-y-4">
-        {items.map((item, index) => {
+        {items.filter(item => item.itemStatus !== 'rejected').map((item, filteredIndex) => {
+          // Get original index for display
+          const originalIndex = items.findIndex(originalItem => originalItem.id === item.id)
           // Use the most current approval status (prioritize local state if it exists)
           const currentApprovalStatus = approvalItems[item.id]?.approvalStatus || item.approvalStatus || 'pending_approval'
           const currentApproval = {
@@ -239,7 +252,7 @@ export default function CEOApprovalInterface({
                       </svg>
                     </button>
                     <h3 className="text-base font-medium text-gray-900">
-                      Item {index + 1}: {item.itemName}
+                      Item {originalIndex + 1}: {item.itemName}
                     </h3>
                   </div>
                   <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getApprovalStatusColor(currentApproval.approvalStatus)}`}>
@@ -372,8 +385,8 @@ export default function CEOApprovalInterface({
                           {item.costProof}
                         </a>
                       ) : (
-                        <a href={item.costProof} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm">
-                          View uploaded file
+                        <a href={item.costProof} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm" download>
+                          View/Download uploaded file
                         </a>
                       )}
                     </div>
