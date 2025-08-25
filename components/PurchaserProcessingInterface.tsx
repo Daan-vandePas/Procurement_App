@@ -5,6 +5,7 @@ import { RequestItem, ItemProcessingData, ProcessingUpdate, CostProofType } from
 
 interface PurchaserProcessingInterfaceProps {
   items: RequestItem[]
+  requestId: string
   onItemUpdate: (update: ProcessingUpdate) => Promise<void>
   onSubmitForApproval: () => Promise<void>
   processingItems: {[itemId: string]: ItemProcessingData}
@@ -16,6 +17,7 @@ interface PurchaserProcessingInterfaceProps {
 
 export default function PurchaserProcessingInterface({
   items,
+  requestId,
   onItemUpdate,
   onSubmitForApproval,
   processingItems,
@@ -27,6 +29,11 @@ export default function PurchaserProcessingInterface({
   const [errors, setErrors] = useState<{[itemId: string]: string}>({})
   const [linkInputs, setLinkInputs] = useState<{[itemId: string]: string}>({})
   const [expandedItems, setExpandedItems] = useState<{[itemId: string]: boolean}>({})
+  
+  // New state for backend verification tracking
+  const [savingItems, setSavingItems] = useState<{[itemId: string]: boolean}>({})
+  const [verifiedItems, setVerifiedItems] = useState<{[itemId: string]: boolean}>({})
+  const [verificationErrors, setVerificationErrors] = useState<{[itemId: string]: string}>({})
 
   const toggleItemExpansion = (itemId: string) => {
     setExpandedItems({
@@ -50,6 +57,65 @@ export default function PurchaserProcessingInterface({
       const newErrors = { ...errors }
       delete newErrors[itemId]
       setErrors(newErrors)
+    }
+  }
+
+  // Backend verification function to ensure item was saved correctly
+  const verifyItemInDatabase = async (itemId: string, requestId: string, expectedData: ItemProcessingData): Promise<{success: boolean, error?: string}> => {
+    try {
+      console.log('🔍 Verifying item in database:', itemId, expectedData)
+      
+      // Fetch current request data from backend
+      const response = await fetch(`/api/requests/${requestId}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch request for verification')
+      }
+      
+      const currentRequest = await response.json()
+      const item = currentRequest.items.find((item: any) => item.id === itemId)
+      
+      if (!item) {
+        return { success: false, error: 'Item not found in database' }
+      }
+      
+      // Verify all expected fields match
+      const verificationChecks = []
+      
+      if (expectedData.itemStatus === 'priced') {
+        if (item.itemStatus !== 'priced') {
+          verificationChecks.push(`Item status: expected 'priced', got '${item.itemStatus || 'undefined'}'`)
+        }
+        if (!item.actualCost || item.actualCost !== expectedData.actualCost) {
+          verificationChecks.push(`Actual cost: expected '${expectedData.actualCost}', got '${item.actualCost || 'undefined'}'`)
+        }
+        if (!item.costProof || item.costProof !== expectedData.costProof) {
+          verificationChecks.push(`Cost proof: expected '${expectedData.costProof}', got '${item.costProof || 'undefined'}'`)
+        }
+        if (!item.costProofType || item.costProofType !== expectedData.costProofType) {
+          verificationChecks.push(`Cost proof type: expected '${expectedData.costProofType}', got '${item.costProofType || 'undefined'}'`)
+        }
+      } else if (expectedData.itemStatus === 'rejected') {
+        if (item.itemStatus !== 'rejected') {
+          verificationChecks.push(`Item status: expected 'rejected', got '${item.itemStatus || 'undefined'}'`)
+        }
+        if (!item.rejectionReason || item.rejectionReason !== expectedData.rejectionReason) {
+          verificationChecks.push(`Rejection reason: expected '${expectedData.rejectionReason}', got '${item.rejectionReason || 'undefined'}'`)
+        }
+      }
+      
+      if (verificationChecks.length > 0) {
+        const errorMsg = `Backend verification failed: ${verificationChecks.join(', ')}`
+        console.error('❌ Verification failed:', errorMsg)
+        return { success: false, error: errorMsg }
+      }
+      
+      console.log('✅ Verification successful for item:', itemId)
+      return { success: true }
+      
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown verification error'
+      console.error('❌ Verification error:', errorMsg)
+      return { success: false, error: errorMsg }
     }
   }
 
@@ -132,16 +198,57 @@ export default function PurchaserProcessingInterface({
       return
     }
 
+    // Set saving state
+    setSavingItems({ ...savingItems, [itemId]: true })
+    
+    // Clear previous verification status
+    const newVerifiedItems = { ...verifiedItems }
+    delete newVerifiedItems[itemId]
+    setVerifiedItems(newVerifiedItems)
+    
+    const newVerificationErrors = { ...verificationErrors }
+    delete newVerificationErrors[itemId]
+    setVerificationErrors(newVerificationErrors)
+
     try {
+      console.log('💾 Saving item to backend:', itemId, itemData)
+      
+      // Step 1: Save to backend
       await onItemUpdate({ itemId, data: itemData })
-      setErrors({ ...errors, [itemId]: '' })
-      // Collapse the item after successful save
-      setExpandedItems({ ...expandedItems, [itemId]: false })
+      
+      // Step 2: Verify the save was successful in backend
+      console.log('🔍 Verifying item was saved correctly...')
+      const verificationResult = await verifyItemInDatabase(itemId, requestId, itemData)
+      
+      if (verificationResult.success) {
+        // Success: Mark as verified and clear errors
+        console.log('✅ Item verified successfully in backend:', itemId)
+        setVerifiedItems({ ...verifiedItems, [itemId]: true })
+        setErrors({ ...errors, [itemId]: '' })
+        // Collapse the item after successful save and verification
+        setExpandedItems({ ...expandedItems, [itemId]: false })
+      } else {
+        // Verification failed: Show error but don't mark as verified
+        console.error('❌ Backend verification failed:', verificationResult.error)
+        setVerificationErrors({ 
+          ...verificationErrors, 
+          [itemId]: verificationResult.error || 'Backend verification failed' 
+        })
+        setErrors({ 
+          ...errors, 
+          [itemId]: `Save completed but verification failed: ${verificationResult.error}. Please try saving again.` 
+        })
+      }
+      
     } catch (error) {
+      console.error('❌ Save failed:', error)
       setErrors({
         ...errors,
         [itemId]: error instanceof Error ? error.message : 'Failed to save item'
       })
+    } finally {
+      // Clear saving state
+      setSavingItems({ ...savingItems, [itemId]: false })
     }
   }
 
@@ -158,10 +265,32 @@ export default function PurchaserProcessingInterface({
       return false
     }
     
+    // Don't allow submit if any items are currently being saved
+    if (Object.values(savingItems).some(isSaving => isSaving)) {
+      return false
+    }
+    
+    // All items must be processed and verified in the backend
     return items.every(item => {
       const processing = processingItems[item.id]
-      return processing && processing.itemStatus !== 'pending'
+      const isProcessed = processing && processing.itemStatus !== 'pending'
+      const isVerified = verifiedItems[item.id]
+      
+      // Item must be both processed and verified in backend
+      return isProcessed && isVerified
     })
+  }
+
+  const getVerificationProgress = () => {
+    const processedCount = items.filter(item => {
+      const processing = processingItems[item.id]
+      return processing && processing.itemStatus !== 'pending'
+    }).length
+    
+    const verifiedCount = items.filter(item => verifiedItems[item.id]).length
+    const savingCount = Object.values(savingItems).filter(Boolean).length
+    
+    return { processedCount, verifiedCount, savingCount, totalCount: items.length }
   }
 
   const getItemStatusColor = (status: string) => {
@@ -182,20 +311,26 @@ export default function PurchaserProcessingInterface({
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="flex justify-between items-center">
           <div>
-            <h3 className="text-lg font-medium text-blue-900">Processing Progress</h3>
-            <p className="text-sm text-blue-700">
-              {getProcessedCount()} of {items.length} items processed
-            </p>
+            <h3 className="text-lg font-medium text-blue-900">Processing & Verification Progress</h3>
+            <div className="text-sm text-blue-700 space-y-1">
+              <p>{getProcessedCount()} of {items.length} items processed</p>
+              <p>{getVerificationProgress().verifiedCount} of {items.length} items verified in database</p>
+              {getVerificationProgress().savingCount > 0 && (
+                <p className="text-blue-600 font-medium">
+                  {getVerificationProgress().savingCount} items currently saving & verifying...
+                </p>
+              )}
+            </div>
           </div>
           <div className="flex items-center">
             <div className="w-32 bg-blue-200 rounded-full h-2 mr-3">
               <div 
                 className="bg-blue-600 h-2 rounded-full transition-all" 
-                style={{ width: `${(getProcessedCount() / items.length) * 100}%` }}
+                style={{ width: `${(getVerificationProgress().verifiedCount / items.length) * 100}%` }}
               ></div>
             </div>
             <span className="text-sm font-medium text-blue-900">
-              {Math.round((getProcessedCount() / items.length) * 100)}%
+              {Math.round((getVerificationProgress().verifiedCount / items.length) * 100)}% Verified
             </span>
           </div>
         </div>
@@ -206,13 +341,16 @@ export default function PurchaserProcessingInterface({
         {items.map((item, index) => {
           const processing = processingItems[item.id] || { itemStatus: 'pending' }
           const error = errors[item.id]
+          const verificationError = verificationErrors[item.id]
           
           const hasCost = !!processing.actualCost && processing.actualCost > 0
           const hasProof = !!processing.costProof && 
                           processing.costProof !== 'undefined' && 
                           processing.costProof.toString().trim().length > 0
           const isUploading = uploadingFile === item.id
-          const canSave = hasCost && hasProof && !isUploading
+          const isSaving = savingItems[item.id]
+          const isVerified = verifiedItems[item.id]
+          const canSave = hasCost && hasProof && !isUploading && !isSaving
           const isProcessed = processing.itemStatus !== 'pending'
           const isExpanded = expandedItems[item.id] ?? !isProcessed // Default: expand unprocessed items, collapse processed ones
           
@@ -228,9 +366,26 @@ export default function PurchaserProcessingInterface({
                     Quantity: {item.quantity} | Estimated: €{item.estimatedCost}
                   </p>
                 </div>
-                <span className={`px-3 py-1 text-sm font-medium rounded-full ${getItemStatusColor(processing.itemStatus)}`}>
-                  {processing.itemStatus}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`px-3 py-1 text-sm font-medium rounded-full ${getItemStatusColor(processing.itemStatus)}`}>
+                    {processing.itemStatus}
+                  </span>
+                  {isSaving && (
+                    <span className="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded-full">
+                      Saving...
+                    </span>
+                  )}
+                  {isVerified && !isSaving && (
+                    <span className="px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded-full">
+                      ✅ Verified
+                    </span>
+                  )}
+                  {verificationError && !isSaving && (
+                    <span className="px-2 py-1 text-xs font-medium text-red-700 bg-red-100 rounded-full">
+                      ❌ Failed
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Processing Options */}
@@ -354,6 +509,8 @@ export default function PurchaserProcessingInterface({
                     className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isUploading ? 'Uploading File...' : 
+                     isSaving ? 'Saving & Verifying...' :
+                     isVerified ? '✅ Verified in Database' :
                      `Save Pricing ${!hasCost ? '(Missing Cost)' : !hasProof ? '(Missing Proof)' : '✓'}`}
                   </button>
                 </div>
@@ -381,10 +538,12 @@ export default function PurchaserProcessingInterface({
                       // Wait a moment for state update, then save
                       setTimeout(() => handleSaveItem(item.id), 100)
                     }}
-                    disabled={!processing.rejectionReason?.trim()}
+                    disabled={!processing.rejectionReason?.trim() || isSaving}
                     className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Reject Item
+                    {isSaving ? 'Rejecting & Verifying...' :
+                     processing.itemStatus === 'rejected' && isVerified ? '✅ Rejection Verified' :
+                     'Reject Item'}
                   </button>
                 </div>
               </div>
@@ -394,29 +553,88 @@ export default function PurchaserProcessingInterface({
                   <p className="text-sm text-red-700">{error}</p>
                 </div>
               )}
+              {verificationError && !error && (
+                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start">
+                      <svg className="w-5 h-5 text-yellow-400 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <div>
+                        <h4 className="text-sm font-medium text-yellow-800">Backend Verification Failed</h4>
+                        <p className="text-sm text-yellow-700 mt-1">{verificationError}</p>
+                        <p className="text-sm text-yellow-600 mt-1">The item may not have been saved correctly to the database.</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        try {
+                          updateProcessingItem(item.id, 'itemStatus', processing.itemStatus === 'rejected' ? 'rejected' : 'priced')
+                          await new Promise(resolve => setTimeout(resolve, 100))
+                          await handleSaveItem(item.id)
+                        } catch (error) {
+                          console.error('Error during retry:', error)
+                        }
+                      }}
+                      disabled={isSaving}
+                      className="ml-4 px-3 py-1 text-sm font-medium text-yellow-700 bg-yellow-100 hover:bg-yellow-200 border border-yellow-300 rounded-md disabled:opacity-50"
+                    >
+                      {isSaving ? 'Retrying...' : 'Retry Save'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )
         })}
       </div>
 
       {/* Submit for Approval */}
-      {canSubmitForApproval() && (
+      {canSubmitForApproval() ? (
         <div className="bg-green-50 border border-green-200 rounded-lg p-6">
           <div className="flex justify-between items-center">
             <div>
-              <h3 className="text-lg font-medium text-green-900">Ready for Approval</h3>
+              <h3 className="text-lg font-medium text-green-900">✅ Ready for Approval</h3>
               <p className="text-sm text-green-700">
-                All items have been processed. You can now submit this request for approval.
+                All items have been processed and verified in the database. You can now submit this request for approval.
               </p>
             </div>
             <button
               onClick={onSubmitForApproval}
-              disabled={isSubmitting || uploadingFile !== null}
+              disabled={isSubmitting || uploadingFile !== null || Object.values(savingItems).some(Boolean)}
               className="bg-green-600 text-white py-3 px-6 rounded-md hover:bg-green-700 disabled:opacity-50 font-medium"
             >
               {isSubmitting ? 'Validating & Submitting...' : 
                uploadingFile ? 'Uploading files...' : 
+               Object.values(savingItems).some(Boolean) ? 'Items still saving...' :
                'Submit for Approval'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-medium text-yellow-900">Processing Required</h3>
+              <div className="text-sm text-yellow-700 space-y-1">
+                {getVerificationProgress().verifiedCount < items.length && (
+                  <p>
+                    {items.length - getVerificationProgress().verifiedCount} item(s) need to be processed and verified in database before submission.
+                  </p>
+                )}
+                {Object.values(savingItems).some(Boolean) && (
+                  <p>Please wait for all items to finish saving and verification.</p>
+                )}
+                {uploadingFile && (
+                  <p>Please wait for file upload to complete.</p>
+                )}
+              </div>
+            </div>
+            <button
+              disabled
+              className="bg-gray-400 text-white py-3 px-6 rounded-md font-medium cursor-not-allowed opacity-50"
+            >
+              Submit for Approval
             </button>
           </div>
         </div>

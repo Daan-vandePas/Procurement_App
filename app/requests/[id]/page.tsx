@@ -567,6 +567,7 @@ export default function RequestDetailPage() {
           <div className="p-6">
             <PurchaserProcessingInterface
               items={request.items}
+              requestId={requestId}
               onItemUpdate={handleItemUpdate}
               onSubmitForApproval={handleSubmitForApproval}
               processingItems={processingItems}
