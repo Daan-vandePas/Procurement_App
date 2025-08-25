@@ -204,9 +204,17 @@ export default function PurchaserProcessingInterface({
     }
   }
 
-  const handleSaveItem = async (itemId: string) => {
-    const itemData = processingItems[itemId]
+  const handleSaveItem = async (itemId: string, freshData?: ItemProcessingData) => {
+    // Use fresh data if provided, otherwise fall back to state (for backwards compatibility)
+    const itemData = freshData || processingItems[itemId]
     if (!itemData) return
+    
+    console.log('💾 handleSaveItem called with:', { 
+      itemId, 
+      usingFreshData: !!freshData, 
+      itemStatus: itemData.itemStatus,
+      source: freshData ? 'fresh parameter' : 'processingItems state' 
+    })
 
     // Validate item data
     let validationError = ''
@@ -533,12 +541,19 @@ export default function PurchaserProcessingInterface({
                   <button
                     onClick={async () => {
                       try {
-                        // First set the status to 'priced'
+                        console.log('💰 Save Pricing clicked for item:', item.id)
+                        
+                        // Create fresh data with updated status
+                        const currentItem = processingItems[item.id] || { itemStatus: 'pending' as const }
+                        const freshData = { ...currentItem, itemStatus: 'priced' as const }
+                        
+                        console.log('📝 Fresh data for save:', freshData)
+                        
+                        // Update the UI state
                         updateProcessingItem(item.id, 'itemStatus', 'priced')
                         
-                        // Wait for state to update, then save immediately
-                        await new Promise(resolve => setTimeout(resolve, 50))
-                        await handleSaveItem(item.id)
+                        // Use fresh data directly - no waiting for state update needed
+                        await handleSaveItem(item.id, freshData)
                       } catch (error) {
                         console.error('Error saving priced item:', error)
                       }
@@ -573,13 +588,19 @@ export default function PurchaserProcessingInterface({
                   <button
                     onClick={async () => {
                       try {
-                        console.log('🔴 Rejecting item:', item.id, processing.rejectionReason)
-                        // First set the status to 'rejected'
+                        console.log('🔴 Reject Item clicked for item:', item.id, processing.rejectionReason)
+                        
+                        // Create fresh data with updated status
+                        const currentItem = processingItems[item.id] || { itemStatus: 'pending' as const }
+                        const freshData = { ...currentItem, itemStatus: 'rejected' as const }
+                        
+                        console.log('📝 Fresh data for rejection:', freshData)
+                        
+                        // Update the UI state
                         updateProcessingItem(item.id, 'itemStatus', 'rejected')
                         
-                        // Wait for state to update, then save immediately
-                        await new Promise(resolve => setTimeout(resolve, 50))
-                        await handleSaveItem(item.id)
+                        // Use fresh data directly - no waiting for state update needed
+                        await handleSaveItem(item.id, freshData)
                       } catch (error) {
                         console.error('Error rejecting item:', error)
                       }
@@ -616,9 +637,20 @@ export default function PurchaserProcessingInterface({
                       onClick={async () => {
                         try {
                           console.log('🔄 Retrying save for item:', item.id, 'current status:', processing.itemStatus)
-                          updateProcessingItem(item.id, 'itemStatus', processing.itemStatus === 'rejected' ? 'rejected' : 'priced')
-                          await new Promise(resolve => setTimeout(resolve, 50))
-                          await handleSaveItem(item.id)
+                          
+                          const targetStatus = processing.itemStatus === 'rejected' ? 'rejected' as const : 'priced' as const
+                          
+                          // Create fresh data with current status
+                          const currentItem = processingItems[item.id] || { itemStatus: 'pending' as const }  
+                          const freshData = { ...currentItem, itemStatus: targetStatus }
+                          
+                          console.log('📝 Fresh data for retry:', freshData)
+                          
+                          // Update UI state
+                          updateProcessingItem(item.id, 'itemStatus', targetStatus)
+                          
+                          // Use fresh data directly
+                          await handleSaveItem(item.id, freshData)
                         } catch (error) {
                           console.error('Error during retry:', error)
                         }
