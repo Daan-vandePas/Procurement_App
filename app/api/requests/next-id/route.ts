@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getNextRequestId } from '@/lib/storage'
 
-// GET /api/requests/next-id - Get unique UUID-based request ID
+// GET /api/requests/next-id - Get unique sequential request ID
 export async function GET(request: NextRequest) {
   try {
-    console.log('🆔 API: Generating UUID-based request ID...')
+    console.log('🔢 API: Generating sequential request ID...')
     const nextId = await getNextRequestId()
     console.log('✅ API: Generated request ID:', nextId)
     
