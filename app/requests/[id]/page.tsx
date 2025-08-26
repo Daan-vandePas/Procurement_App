@@ -467,41 +467,44 @@ export default function RequestDetailPage() {
               </span>
             </div>
             <div>
-              <h3 className="text-sm font-medium text-gray-500">Date Submitted</h3>
-              <p className="mt-1 text-sm text-gray-900">
-                {new Date(request.requestDate).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric'
-                })}
-              </p>
+              <h3 className="text-sm font-medium text-gray-500 mb-3">Timeline</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center py-1">
+                  <span className="text-sm text-gray-600">Date Submitted:</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    {new Date(request.requestDate).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </span>
+                </div>
+                {request.processedDate && (
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-sm text-gray-600">Date Processed:</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {new Date(request.processedDate).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </span>
+                  </div>
+                )}
+                {request.approvalCompletedDate && (
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-sm text-gray-600">Date Approved/Rejected:</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {new Date(request.approvalCompletedDate).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
-            
-            {request.processedDate && (
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">Date Processed</h3>
-                <p className="mt-1 text-sm text-gray-900">
-                  {new Date(request.processedDate).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric'
-                  })}
-                </p>
-              </div>
-            )}
-            
-            {request.approvalCompletedDate && (
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">Date Approved/Rejected</h3>
-                <p className="mt-1 text-sm text-gray-900">
-                  {new Date(request.approvalCompletedDate).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric'
-                  })}
-                </p>
-              </div>
-            )}
           </div>
 
           {/* Items */}

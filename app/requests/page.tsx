@@ -78,6 +78,25 @@ export default function RequestsPage() {
     })
   }
 
+  const getLatestDateWithLabel = (request: any) => {
+    if (request.approvalCompletedDate) {
+      return {
+        date: request.approvalCompletedDate,
+        label: 'Decided'
+      }
+    }
+    if (request.processedDate) {
+      return {
+        date: request.processedDate,
+        label: 'Processed'
+      }
+    }
+    return {
+      date: request.requestDate,
+      label: 'Submitted'
+    }
+  }
+
   const filteredRequests = requests.filter(request => {
     if (filter === 'all') return true
     if (filter === 'processed') return request.status === 'processed' || request.status === 'approval_completed'
@@ -354,24 +373,15 @@ export default function RequestsPage() {
                         </span>
                       </td>
                       <td className="px-3 py-4 text-sm text-gray-900">
-                        <div className="space-y-1">
-                          <div>
-                            <span className="text-xs text-gray-500">Submitted:</span><br />
-                            <span className="font-medium">{formatDate(request.requestDate)}</span>
-                          </div>
-                          {request.processedDate && (
+                        {(() => {
+                          const latestDate = getLatestDateWithLabel(request)
+                          return (
                             <div>
-                              <span className="text-xs text-gray-500">Processed:</span><br />
-                              <span className="font-medium">{formatDate(request.processedDate)}</span>
+                              <span className="text-xs text-gray-500">{latestDate.label}:</span><br />
+                              <span className="font-medium">{formatDate(latestDate.date)}</span>
                             </div>
-                          )}
-                          {request.approvalCompletedDate && (
-                            <div>
-                              <span className="text-xs text-gray-500">Decided:</span><br />
-                              <span className="font-medium">{formatDate(request.approvalCompletedDate)}</span>
-                            </div>
-                          )}
-                        </div>
+                          )
+                        })()}
                       </td>
                       <td className="px-3 py-4 whitespace-nowrap text-sm">
                         <Link
