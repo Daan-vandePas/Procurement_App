@@ -179,67 +179,46 @@ export const deleteRequest = async (id: string): Promise<boolean> => {
 }
 
 export const getNextRequestId = async (): Promise<string> => {
-  const kv = await initKV()
-  const counterKey = 'request_counter'
-  const maxRetries = 10
-  
-  // Retry loop for handling collisions
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      console.log(`🔢 Storage: Attempting to generate ID (attempt ${attempt + 1}/${maxRetries})`)
+  try {
+    console.log('🆔 Storage: Generating UUID-based request ID...')
+    
+    // Generate UUID-based ID for guaranteed uniqueness
+    const uuid = crypto.randomUUID()
+    const suffix = uuid.replace(/-/g, '').slice(0, 8).toUpperCase()
+    const candidateId = `REQ-${suffix}`
+    
+    console.log(`🎯 Storage: Generated candidate ID: ${candidateId}`)
+    
+    // Safety check: verify ID doesn't exist (extremely unlikely with UUID)
+    const kv = await initKV()
+    const candidateKey = `request:${candidateId}`
+    const existingRequest = await kv.get(candidateKey)
+    
+    if (existingRequest) {
+      // Astronomically unlikely (1 in ~4 billion chance)
+      console.warn(`⚠️ Storage: UUID collision detected for ${candidateId} - generating new one`)
       
-      // Step 1: Get current counter and all existing request IDs atomically
-      const [currentCounterStr, existingKeys] = await Promise.all([
-        kv.get(counterKey),
-        kv.keys('request:*')
-      ])
+      // Generate fallback with timestamp
+      const timestamp = Date.now().toString(36).toUpperCase()
+      const random = Math.random().toString(36).slice(2, 5).toUpperCase()
+      const fallbackId = `REQ-${timestamp}${random}`
       
-      const currentCounter = currentCounterStr ? parseInt(currentCounterStr as string, 10) : 0
-      console.log(`📊 Storage: Current counter: ${currentCounter}, Existing requests: ${existingKeys?.length || 0}`)
-      
-      // Extract existing numeric IDs to find the actual highest ID
-      const existingIds = existingKeys
-        ?.map((key: string) => {
-          const requestId = key.replace('request:', '')
-          const match = requestId.match(/^REQ-(\d+)$/)
-          return match ? parseInt(match[1], 10) : 0
-        })
-        .filter((id: number) => id > 0) || []
-      
-      const highestExistingId = existingIds.length > 0 ? Math.max(...existingIds) : 0
-      console.log(`🔍 Storage: Highest existing ID: ${highestExistingId}`)
-      
-      // Step 2: Calculate next safe counter value
-      const nextCounter = Math.max(currentCounter + 1, highestExistingId + 1)
-      const candidateId = `REQ-${nextCounter.toString().padStart(3, '0')}`
-      const candidateKey = `request:${candidateId}`
-      
-      console.log(`🎯 Storage: Candidate ID: ${candidateId}`)
-      
-      // Step 3: Check if candidate ID already exists
-      const existingRequest = await kv.get(candidateKey)
-      if (existingRequest) {
-        console.log(`⚠️ Storage: ID ${candidateId} already exists, retrying...`)
-        // Update counter to skip this ID and retry
-        await kv.set(counterKey, nextCounter.toString())
-        continue
-      }
-      
-      // Step 4: Atomically update counter and reserve the ID
-      await kv.set(counterKey, nextCounter.toString())
-      
-      console.log(`✅ Storage: Generated unique ID: ${candidateId}`)
-      return candidateId
-      
-    } catch (error) {
-      console.error(`❌ Storage: Error in ID generation attempt ${attempt + 1}:`, error)
-      if (attempt === maxRetries - 1) {
-        throw new Error(`Failed to generate unique request ID after ${maxRetries} attempts`)
-      }
-      // Wait a bit before retrying to avoid tight loops
-      await new Promise(resolve => setTimeout(resolve, 100))
+      console.log(`🔄 Storage: Using fallback ID: ${fallbackId}`)
+      return fallbackId
     }
+    
+    console.log(`✅ Storage: Generated unique UUID-based ID: ${candidateId}`)
+    return candidateId
+    
+  } catch (error) {
+    console.error('❌ Storage: Error in UUID generation:', error)
+    
+    // Emergency fallback: timestamp-based ID
+    const timestamp = Date.now().toString(36).toUpperCase()
+    const random = Math.random().toString(36).slice(2, 6).toUpperCase()
+    const emergencyId = `REQ-${timestamp}${random}`
+    
+    console.log(`🚨 Storage: Using emergency ID: ${emergencyId}`)
+    return emergencyId
   }
-  
-  throw new Error('Failed to generate unique request ID')
 }

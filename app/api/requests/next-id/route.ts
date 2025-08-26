@@ -1,33 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getNextRequestId } from '@/lib/storage'
 
-// GET /api/requests/next-id - Get the next sequential request ID
+// GET /api/requests/next-id - Get unique UUID-based request ID
 export async function GET(request: NextRequest) {
-  const maxApiRetries = 3
-  
-  for (let attempt = 0; attempt < maxApiRetries; attempt++) {
-    try {
-      console.log(`🔢 API: Generating next request ID (attempt ${attempt + 1}/${maxApiRetries})...`)
-      const nextId = await getNextRequestId()
-      console.log('✅ API: Generated request ID:', nextId)
-      
-      return NextResponse.json({ id: nextId })
-    } catch (error) {
-      console.error(`❌ API: Error generating next request ID (attempt ${attempt + 1}):`, error)
-      
-      // If this was the last attempt, return error
-      if (attempt === maxApiRetries - 1) {
-        return NextResponse.json(
-          { 
-            error: error instanceof Error ? error.message : 'Failed to generate request ID',
-            details: 'Maximum retry attempts exceeded'
-          },
-          { status: 500 }
-        )
-      }
-      
-      // Wait before retrying (exponential backoff)
-      await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 200))
-    }
+  try {
+    console.log('🆔 API: Generating UUID-based request ID...')
+    const nextId = await getNextRequestId()
+    console.log('✅ API: Generated request ID:', nextId)
+    
+    return NextResponse.json({ id: nextId })
+  } catch (error) {
+    console.error('❌ API: Error generating request ID:', error)
+    
+    // UUID generation should never fail, but provide graceful fallback
+    return NextResponse.json(
+      { 
+        error: 'Failed to generate request ID. Please refresh and try again.',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    )
   }
 }

@@ -40,19 +40,22 @@ export async function POST(request: NextRequest) {
     
     if (error instanceof Error) {
       if (error.message.includes('already exists')) {
-        errorMessage = 'Request ID collision detected. Please try submitting again.'
+        // This should be extremely rare with UUID system
+        errorMessage = 'Request could not be saved. Please try submitting again.'
         statusCode = 409 // Conflict
-      } else if (error.message.includes('Failed to generate unique request ID')) {
-        errorMessage = 'Unable to generate unique request ID. Please try again later.'
-        statusCode = 503 // Service Unavailable
+      } else if (error.message.includes('validation')) {
+        errorMessage = 'Invalid request data. Please check all required fields.'
+        statusCode = 400 // Bad Request
       } else {
-        errorMessage = error.message
+        errorMessage = 'Unable to process request. Please try again.'
+        statusCode = 500
       }
     }
     
     return NextResponse.json(
       { 
-        error: errorMessage
+        error: errorMessage,
+        retryable: statusCode !== 400 // Client can retry unless it's a validation error
       },
       { status: statusCode }
     )
