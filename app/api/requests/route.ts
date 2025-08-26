@@ -40,9 +40,13 @@ export async function POST(request: NextRequest) {
     
     if (error instanceof Error) {
       if (error.message.includes('already exists')) {
-        // This should be extremely rare with UUID system
-        errorMessage = 'Request could not be saved. Please try submitting again.'
+        // This should be extremely rare with UUID system - likely a storage timing issue
+        errorMessage = 'Request ID conflict detected. Please try submitting again.'
         statusCode = 409 // Conflict
+      } else if (error.message.includes('Failed to generate unique request ID')) {
+        // ID generation system failed completely
+        errorMessage = 'Unable to generate unique request ID. Please try again in a moment.'
+        statusCode = 503 // Service Unavailable
       } else if (error.message.includes('validation')) {
         errorMessage = 'Invalid request data. Please check all required fields.'
         statusCode = 400 // Bad Request
