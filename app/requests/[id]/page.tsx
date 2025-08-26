@@ -322,10 +322,11 @@ export default function RequestDetailPage() {
   }
 
   const getItemContainerStyle = (item: any) => {
-    // Highlight based on CEO approval status if it exists
+    // Highlight based on approval status or rejection status
     if (item.approvalStatus === 'approved') {
       return 'border-green-300 bg-green-50'
-    } else if (item.approvalStatus === 'rejected') {
+    } else if (item.approvalStatus === 'rejected' || item.itemStatus === 'rejected') {
+      // Red highlighting for any rejection (by CEO or purchaser)
       return 'border-red-300 bg-red-50'
     }
     // Default styling

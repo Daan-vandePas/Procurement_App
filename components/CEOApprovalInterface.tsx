@@ -239,7 +239,11 @@ export default function CEOApprovalInterface({
           return (
             <div key={item.id} className={`border rounded-lg ${
               isRejectedByPurchaser 
-                ? 'border-gray-300 bg-gray-50 opacity-75' 
+                ? 'border-red-300 bg-red-50 opacity-75' 
+                : currentApproval.approvalStatus === 'approved'
+                ? 'border-green-300 bg-green-50'
+                : currentApproval.approvalStatus === 'rejected'
+                ? 'border-red-300 bg-red-50'
                 : 'border-gray-200 bg-white'
             }`}>
               {/* Item Header */}
