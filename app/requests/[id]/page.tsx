@@ -309,6 +309,29 @@ export default function RequestDetailPage() {
     }
   }
 
+  const getApprovalStatusColor = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return 'bg-green-100 text-green-800'
+      case 'rejected':
+        return 'bg-red-100 text-red-800'
+      case 'pending_approval':
+      default:
+        return 'bg-yellow-100 text-yellow-800'
+    }
+  }
+
+  const getItemContainerStyle = (item: any) => {
+    // Highlight based on CEO approval status if it exists
+    if (item.approvalStatus === 'approved') {
+      return 'border-green-300 bg-green-50'
+    } else if (item.approvalStatus === 'rejected') {
+      return 'border-red-300 bg-red-50'
+    }
+    // Default styling
+    return 'border-gray-200 bg-white'
+  }
+
   // Permission checks
   const canEditOriginal = user?.role === 'requester' && request?.requesterName === user.email && request?.status === 'draft'
   const canDeleteOriginal = user?.role === 'requester' && request?.requesterName === user.email && request?.status === 'draft'
@@ -459,7 +482,7 @@ export default function RequestDetailPage() {
             <h3 className="text-lg font-medium text-gray-900 mb-4">Requested Items</h3>
             <div className="space-y-6">
               {request.items.map((item, index) => (
-                <div key={item.id} className="border border-gray-200 rounded-lg p-4">
+                <div key={item.id} className={`border rounded-lg p-4 ${getItemContainerStyle(item)}`}>
                   <div className="flex justify-between items-start mb-4">
                     <h4 className="text-base font-medium text-gray-900">
                       Item {index + 1}: {item.itemName}
@@ -497,6 +520,16 @@ export default function RequestDetailPage() {
                         </span>
                       </div>
                     )}
+
+                    {item.approvalStatus && item.approvalStatus !== 'pending_approval' && (
+                      <div>
+                        <h5 className="text-sm font-medium text-gray-500">Approval Status</h5>
+                        <span className={`mt-1 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getApprovalStatusColor(item.approvalStatus)}`}>
+                          {item.approvalStatus === 'approved' ? 'Approved by CEO' : 
+                           item.approvalStatus === 'rejected' ? 'Rejected by CEO' : item.approvalStatus}
+                        </span>
+                      </div>
+                    )}
                     
                     {item.supplierName && (
                       <div>
@@ -529,8 +562,15 @@ export default function RequestDetailPage() {
                   
                   {item.rejectionReason && (
                     <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
-                      <h5 className="text-sm font-medium text-red-800">Rejection Reason</h5>
+                      <h5 className="text-sm font-medium text-red-800">Purchaser Rejection Reason</h5>
                       <p className="mt-1 text-sm text-red-700">{item.rejectionReason}</p>
+                    </div>
+                  )}
+
+                  {item.ceoRejectionReason && (
+                    <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                      <h5 className="text-sm font-medium text-red-800">CEO Rejection Reason</h5>
+                      <p className="mt-1 text-sm text-red-700">{item.ceoRejectionReason}</p>
                     </div>
                   )}
                   

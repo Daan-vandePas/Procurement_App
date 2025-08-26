@@ -46,11 +46,28 @@ export default function RequestsPage() {
       case 'waiting_for_approval':
         return 'bg-yellow-100 text-yellow-800'
       case 'approval_completed':
+      case 'processed':
         return 'bg-green-100 text-green-800'
       case 'rejected':
         return 'bg-red-100 text-red-800'
       default:
         return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getStatusDisplayText = (status: string) => {
+    switch (status) {
+      case 'requested':
+        return 'Requested'
+      case 'waiting_for_approval':
+        return 'Waiting for Approval'
+      case 'approval_completed':
+      case 'processed':
+        return 'Request Processed'
+      case 'rejected':
+        return 'Rejected'
+      default:
+        return status
     }
   }
 
@@ -63,6 +80,7 @@ export default function RequestsPage() {
 
   const filteredRequests = requests.filter(request => {
     if (filter === 'all') return true
+    if (filter === 'processed') return request.status === 'processed' || request.status === 'approval_completed'
     return request.status === filter
   })
 
@@ -71,8 +89,7 @@ export default function RequestsPage() {
       all: requests.length,
       requested: requests.filter(r => r.status === 'requested').length,
       waiting_for_approval: requests.filter(r => r.status === 'waiting_for_approval').length,
-      approval_completed: requests.filter(r => r.status === 'approval_completed').length,
-      rejected: requests.filter(r => r.status === 'rejected').length
+      processed: requests.filter(r => r.status === 'processed' || r.status === 'approval_completed').length
     }
   }
 
@@ -206,24 +223,14 @@ export default function RequestsPage() {
                 Pending Approval ({statusCounts.waiting_for_approval})
               </button>
               <button
-                onClick={() => setFilter('approval_completed')}
+                onClick={() => setFilter('processed')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  filter === 'approval_completed'
+                  filter === 'processed'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                Approved ({statusCounts.approval_completed})
-              </button>
-              <button
-                onClick={() => setFilter('rejected')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  filter === 'rejected'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Rejected ({statusCounts.rejected})
+                Request Processed ({statusCounts.processed})
               </button>
             </nav>
           </div>
@@ -342,9 +349,7 @@ export default function RequestsPage() {
                         <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(request.status)} min-w-20`} style={{whiteSpace: 'pre-line', textAlign: 'center'}}>
                           {request.status === 'waiting_for_approval' 
                             ? 'Waiting for\nApproval'
-                            : request.status.replace('_', ' ').split(' ').map(word => 
-                                word.charAt(0).toUpperCase() + word.slice(1)
-                              ).join(' ')
+                            : getStatusDisplayText(request.status)
                           }
                         </span>
                       </td>

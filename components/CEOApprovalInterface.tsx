@@ -223,9 +223,8 @@ export default function CEOApprovalInterface({
 
       {/* Items */}
       <div className="space-y-4">
-        {items.filter(item => item.itemStatus !== 'rejected').map((item, filteredIndex) => {
-          // Get original index for display
-          const originalIndex = items.findIndex(originalItem => originalItem.id === item.id)
+        {items.map((item, index) => {
+          const isRejectedByPurchaser = item.itemStatus === 'rejected'
           // Use the most current approval status (prioritize local state if it exists)
           const currentApprovalStatus = approvalItems[item.id]?.approvalStatus || item.approvalStatus || 'pending_approval'
           const currentApproval = {
@@ -238,7 +237,11 @@ export default function CEOApprovalInterface({
           const hasError = errors[item.id]
 
           return (
-            <div key={item.id} className="border border-gray-200 rounded-lg bg-white">
+            <div key={item.id} className={`border rounded-lg ${
+              isRejectedByPurchaser 
+                ? 'border-gray-300 bg-gray-50 opacity-75' 
+                : 'border-gray-200 bg-white'
+            }`}>
               {/* Item Header */}
               <div className="p-4 border-b border-gray-100">
                 <div className="flex items-center justify-between">
@@ -252,52 +255,62 @@ export default function CEOApprovalInterface({
                       </svg>
                     </button>
                     <h3 className="text-base font-medium text-gray-900">
-                      Item {originalIndex + 1}: {item.itemName}
+                      Item {index + 1}: {item.itemName}
                     </h3>
                   </div>
-                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getApprovalStatusColor(currentApproval.approvalStatus)}`}>
-                    {currentApproval.approvalStatus === 'pending_approval' ? 'Pending Review' : 
-                     currentApproval.approvalStatus === 'approved' ? 'Approved' : 'Rejected'}
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    {isRejectedByPurchaser ? (
+                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">
+                        Already Rejected by Purchaser
+                      </span>
+                    ) : (
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getApprovalStatusColor(currentApproval.approvalStatus)}`}>
+                        {currentApproval.approvalStatus === 'pending_approval' ? 'Pending Review' : 
+                         currentApproval.approvalStatus === 'approved' ? 'Approved' : 'Rejected'}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Action Buttons */}
-                <div className="mt-4 flex space-x-3">
-                  <button
-                    onClick={() => handleApprovalAction(item.id, 'approve')}
-                    disabled={isSubmitting}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                      currentApproval.approvalStatus === 'approved'
-                        ? 'bg-green-600 text-white'
-                        : 'bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50'
-                    }`}
-                  >
-                    {currentApproval.approvalStatus === 'approved' ? '✓ Approved' : 'Approve'}
-                  </button>
-                  <button
-                    onClick={() => handleApprovalAction(item.id, 'reject')}
-                    disabled={isSubmitting}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                      currentApproval.approvalStatus === 'rejected'
-                        ? 'bg-red-600 text-white'
-                        : 'bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50'
-                    }`}
-                  >
-                    {currentApproval.approvalStatus === 'rejected' ? '✗ Rejected' : 'Reject'}
-                  </button>
-                  {currentApproval.approvalStatus !== 'pending_approval' && (
+                {!isRejectedByPurchaser && (
+                  <div className="mt-4 flex space-x-3">
                     <button
-                      onClick={() => handleApprovalAction(item.id, 'pending')}
+                      onClick={() => handleApprovalAction(item.id, 'approve')}
                       disabled={isSubmitting}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors disabled:opacity-50"
+                      className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                        currentApproval.approvalStatus === 'approved'
+                          ? 'bg-green-600 text-white'
+                          : 'bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50'
+                      }`}
                     >
-                      Reset to Pending
+                      {currentApproval.approvalStatus === 'approved' ? '✓ Approved' : 'Approve'}
                     </button>
-                  )}
-                </div>
+                    <button
+                      onClick={() => handleApprovalAction(item.id, 'reject')}
+                      disabled={isSubmitting}
+                      className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                        currentApproval.approvalStatus === 'rejected'
+                          ? 'bg-red-600 text-white'
+                          : 'bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50'
+                      }`}
+                    >
+                      {currentApproval.approvalStatus === 'rejected' ? '✗ Rejected' : 'Reject'}
+                    </button>
+                    {currentApproval.approvalStatus !== 'pending_approval' && (
+                      <button
+                        onClick={() => handleApprovalAction(item.id, 'pending')}
+                        disabled={isSubmitting}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors disabled:opacity-50"
+                      >
+                        Reset to Pending
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {/* Rejection Reason Input */}
-                {(currentApproval.approvalStatus === 'rejected' || showingRejectionField[item.id]) && (
+                {!isRejectedByPurchaser && (currentApproval.approvalStatus === 'rejected' || showingRejectionField[item.id]) && (
                   <div className="mt-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Rejection Reason *
