@@ -30,6 +30,8 @@ const initKV = async () => {
       if (existingRequests.length === 0) {
         const { createSampleRequests } = await import('./sampleData')
         await createSampleRequests()
+        // Initialize request counter to 4 since sample data has REQ-001 through REQ-004
+        await kvInstance.set('request_counter', '4')
       }
     } catch (error) {
       // Failed to create sample data - continue without it
@@ -164,4 +166,22 @@ export const deleteRequest = async (id: string): Promise<boolean> => {
   const key = `request:${id}`
   const result = await kv.del(key)
   return result > 0
+}
+
+export const getNextRequestId = async (): Promise<string> => {
+  const kv = await initKV()
+  const counterKey = 'request_counter'
+  
+  // Get current counter value
+  const currentCounterStr = await kv.get(counterKey)
+  const currentCounter = currentCounterStr ? parseInt(currentCounterStr as string, 10) : 0
+  
+  // Increment counter
+  const nextCounter = currentCounter + 1
+  
+  // Save updated counter
+  await kv.set(counterKey, nextCounter.toString())
+  
+  // Return formatted ID with zero padding (e.g., REQ-001, REQ-002, etc.)
+  return `REQ-${nextCounter.toString().padStart(3, '0')}`
 }
