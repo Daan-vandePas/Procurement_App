@@ -229,10 +229,31 @@ export const getNextRequestId = async (): Promise<string> => {
       // Double-check that this ID doesn't exist (safety net for race conditions)
       const existingRequest = await kv.get(candidateKey)
       if (existingRequest) {
-        console.warn(`⚠️ Storage: ID ${candidateId} already exists! Updating global counter and retrying...`)
-        // Update counter to skip this ID and retry
-        await kv.set(globalCounterKey, nextCounter.toString())
-        continue
+        console.warn(`⚠️ Storage: ID ${candidateId} already exists! Finding next available ID...`)
+        
+        // Find the next truly available ID by scanning forward
+        let skipCounter = nextCounter
+        let foundAvailable = false
+        
+        for (let skip = 0; skip < 100; skip++) {
+          skipCounter++
+          const skipId = `REQ-${skipCounter.toString().padStart(3, '0')}`
+          const skipKey = `request:${skipId}`
+          const skipCheck = await kv.get(skipKey)
+          
+          if (!skipCheck) {
+            console.log(`🔄 Storage: Found available ID: ${skipId} (skipped ${skip + 1} taken IDs)`)
+            // Update the global counter to this available number
+            await kv.set(globalCounterKey, skipCounter.toString())
+            foundAvailable = true
+            return skipId
+          }
+        }
+        
+        if (!foundAvailable) {
+          console.error(`❌ Storage: Could not find available sequential ID after checking 100 candidates`)
+          continue // This will trigger the retry logic
+        }
       }
       
       // Atomically update the global counter for ALL users
