@@ -292,8 +292,8 @@ export default function RequestsPage() {
                   <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                     Status
                   </th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
-                    Date
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                    Dates
                   </th>
                   <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
                     Actions
@@ -353,8 +353,25 @@ export default function RequestsPage() {
                           }
                         </span>
                       </td>
-                      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatDate(request.requestDate)}
+                      <td className="px-3 py-4 text-sm text-gray-900">
+                        <div className="space-y-1">
+                          <div>
+                            <span className="text-xs text-gray-500">Submitted:</span><br />
+                            <span className="font-medium">{formatDate(request.requestDate)}</span>
+                          </div>
+                          {request.processedDate && (
+                            <div>
+                              <span className="text-xs text-gray-500">Processed:</span><br />
+                              <span className="font-medium">{formatDate(request.processedDate)}</span>
+                            </div>
+                          )}
+                          {request.approvalCompletedDate && (
+                            <div>
+                              <span className="text-xs text-gray-500">Decided:</span><br />
+                              <span className="font-medium">{formatDate(request.approvalCompletedDate)}</span>
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="px-3 py-4 whitespace-nowrap text-sm">
                         <Link

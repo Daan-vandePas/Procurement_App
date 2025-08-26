@@ -476,6 +476,32 @@ export default function RequestDetailPage() {
                 })}
               </p>
             </div>
+            
+            {request.processedDate && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Date Processed</h3>
+                <p className="mt-1 text-sm text-gray-900">
+                  {new Date(request.processedDate).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  })}
+                </p>
+              </div>
+            )}
+            
+            {request.approvalCompletedDate && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Date Approved/Rejected</h3>
+                <p className="mt-1 text-sm text-gray-900">
+                  {new Date(request.approvalCompletedDate).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  })}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Items */}
@@ -526,8 +552,8 @@ export default function RequestDetailPage() {
                       <div>
                         <h5 className="text-sm font-medium text-gray-500">Approval Status</h5>
                         <span className={`mt-1 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getApprovalStatusColor(item.approvalStatus)}`}>
-                          {item.approvalStatus === 'approved' ? 'Approved by CEO' : 
-                           item.approvalStatus === 'rejected' ? 'Rejected by CEO' : item.approvalStatus}
+                          {item.approvalStatus === 'approved' ? 'Approved' : 
+                           item.approvalStatus === 'rejected' ? 'Rejected' : item.approvalStatus}
                         </span>
                       </div>
                     )}
