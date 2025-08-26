@@ -30,9 +30,7 @@ const initKV = async () => {
       if (existingRequests.length === 0) {
         const { createSampleRequests } = await import('./sampleData')
         await createSampleRequests()
-        // Initialize global counter to 4 since sample data has REQ-001 through REQ-004
-        await kvInstance.set('global_request_counter', '4')
-        console.log('🔢 Storage: Sample data created, global counter set to 4')
+        console.log('📝 Storage: Sample data created with timestamp-based ID system')
       }
     } catch (error) {
       // Failed to create sample data - continue without it
@@ -179,103 +177,13 @@ export const deleteRequest = async (id: string): Promise<boolean> => {
   return result > 0
 }
 
-export const getNextRequestId = async (): Promise<string> => {
-  const kv = await initKV()
-  const globalCounterKey = 'global_request_counter'
-  const maxRetries = 10
+export const getNextRequestId = (): string => {
+  console.log('🕒 Storage: Generating compact timestamp-based request ID...')
   
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      console.log(`🔢 Storage: Generating global sequential request ID (attempt ${attempt + 1}/${maxRetries})...`)
-      
-      // Get current global counter value (shared across ALL users)
-      let currentCounterStr = await kv.get(globalCounterKey)
-      let currentCounter = currentCounterStr ? parseInt(currentCounterStr as string, 10) : 0
-      
-      // If counter is 0 or not set, initialize by scanning existing requests
-      if (currentCounter === 0) {
-        console.log('🔍 Storage: Initializing global counter by scanning existing requests...')
-        const existingKeys = await kv.keys('request:*')
-        
-        if (existingKeys && existingKeys.length > 0) {
-          console.log(`📊 Storage: Found ${existingKeys.length} existing requests, finding highest ID...`)
-          
-          const existingIds = existingKeys
-            .map((key: string) => {
-              const requestId = key.replace('request:', '')
-              const match = requestId.match(/^REQ-(\d+)$/)
-              return match ? parseInt(match[1], 10) : 0
-            })
-            .filter((id: number) => id > 0)
-          
-          if (existingIds.length > 0) {
-            currentCounter = Math.max(...existingIds)
-            console.log(`📈 Storage: Found highest existing sequential ID: REQ-${currentCounter.toString().padStart(3, '0')}`)
-            // Set the global counter to the highest found value
-            await kv.set(globalCounterKey, currentCounter.toString())
-          }
-        }
-        
-        console.log(`🎯 Storage: Global counter initialized to: ${currentCounter}`)
-      }
-      
-      // Generate next sequential ID
-      const nextCounter = currentCounter + 1
-      const candidateId = `REQ-${nextCounter.toString().padStart(3, '0')}`
-      const candidateKey = `request:${candidateId}`
-      
-      console.log(`🎯 Storage: Candidate sequential ID: ${candidateId} (global counter: ${currentCounter} → ${nextCounter})`)
-      
-      // Double-check that this ID doesn't exist (safety net for race conditions)
-      const existingRequest = await kv.get(candidateKey)
-      if (existingRequest) {
-        console.warn(`⚠️ Storage: ID ${candidateId} already exists! Finding next available ID...`)
-        
-        // Find the next truly available ID by scanning forward
-        let skipCounter = nextCounter
-        let foundAvailable = false
-        
-        for (let skip = 0; skip < 100; skip++) {
-          skipCounter++
-          const skipId = `REQ-${skipCounter.toString().padStart(3, '0')}`
-          const skipKey = `request:${skipId}`
-          const skipCheck = await kv.get(skipKey)
-          
-          if (!skipCheck) {
-            console.log(`🔄 Storage: Found available ID: ${skipId} (skipped ${skip + 1} taken IDs)`)
-            // Update the global counter to this available number
-            await kv.set(globalCounterKey, skipCounter.toString())
-            foundAvailable = true
-            return skipId
-          }
-        }
-        
-        if (!foundAvailable) {
-          console.error(`❌ Storage: Could not find available sequential ID after checking 100 candidates`)
-          continue // This will trigger the retry logic
-        }
-      }
-      
-      // Atomically update the global counter for ALL users
-      await kv.set(globalCounterKey, nextCounter.toString())
-      
-      console.log(`✅ Storage: Generated global sequential ID: ${candidateId}`)
-      return candidateId
-      
-    } catch (error) {
-      console.error(`❌ Storage: Error in global sequential ID generation attempt ${attempt + 1}:`, error)
-      
-      if (attempt === maxRetries - 1) {
-        // Emergency fallback with timestamp to ensure uniqueness
-        const emergency = `REQ-${Date.now()}`
-        console.log(`🚨 Storage: Using emergency timestamp ID: ${emergency}`)
-        return emergency
-      }
-      
-      // Wait briefly before retrying to avoid tight loops in race conditions
-      await new Promise(resolve => setTimeout(resolve, 50 + attempt * 50))
-    }
-  }
+  // Generate compact timestamp-based ID using base36 encoding
+  const timestamp = Date.now().toString(36).toUpperCase()
+  const requestId = `REQ-${timestamp}`
   
-  throw new Error('Failed to generate unique sequential request ID after maximum retries')
+  console.log(`✅ Storage: Generated timestamp-based ID: ${requestId}`)
+  return requestId
 }

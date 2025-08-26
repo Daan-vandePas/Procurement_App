@@ -43,9 +43,9 @@ export async function POST(request: NextRequest) {
         // This should be extremely rare with UUID system - likely a storage timing issue
         errorMessage = 'Request ID conflict detected. Please try submitting again.'
         statusCode = 409 // Conflict
-      } else if (error.message.includes('Failed to generate unique sequential request ID')) {
-        // Sequential ID generation system failed completely
-        errorMessage = 'Unable to generate sequential request ID. Please try again in a moment.'
+      } else if (error.message.includes('Failed to generate unique request ID')) {
+        // Timestamp ID generation system failed completely
+        errorMessage = 'Unable to generate request ID. Please try again in a moment.'
         statusCode = 503 // Service Unavailable
       } else if (error.message.includes('validation')) {
         errorMessage = 'Invalid request data. Please check all required fields.'

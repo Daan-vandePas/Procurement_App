@@ -124,7 +124,7 @@ export default function RequestForm({ onSubmit, initialData, isEditing = false }
       let requestId: string = initialData?.id || ''
       if (!requestId) {
         try {
-          console.log('🔢 RequestForm: Generating new request ID...')
+          console.log('🕒 RequestForm: Generating new timestamp-based request ID...')
           const idResponse = await fetch('/api/requests/next-id')
           if (!idResponse.ok) {
             const errorData = await idResponse.json().catch(() => ({ error: 'Unknown error' }))
