@@ -141,7 +141,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Validate all items have been reviewed
-    const unprocessedItems = existingRequest.items.filter(item => 
+    // Only check items that need CEO approval (not already rejected by purchaser)
+    const itemsNeedingApproval = existingRequest.items.filter(item => item.itemStatus !== 'rejected')
+    const unprocessedItems = itemsNeedingApproval.filter(item => 
       !item.approvalStatus || item.approvalStatus === 'pending_approval'
     )
 
