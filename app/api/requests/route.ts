@@ -26,16 +26,35 @@ export async function POST(request: NextRequest) {
     }
     
     console.log('💾 API: Saving request to storage...')
-    // Save request to storage
-    const savedRequest = await saveRequest(requestData)
+    // Save request to storage with overwrite protection for new requests
+    const savedRequest = await saveRequest(requestData, false) // Don't allow overwrites for new requests
     console.log('✅ API: Request saved successfully:', savedRequest.id)
     
     return NextResponse.json(savedRequest, { status: 201 })
   } catch (error) {
     console.error('❌ API: Error creating request:', error)
+    
+    // Provide specific error messages for different failure types
+    let errorMessage = 'Failed to create request'
+    let statusCode = 500
+    
+    if (error instanceof Error) {
+      if (error.message.includes('already exists')) {
+        errorMessage = 'Request ID collision detected. Please try submitting again.'
+        statusCode = 409 // Conflict
+      } else if (error.message.includes('Failed to generate unique request ID')) {
+        errorMessage = 'Unable to generate unique request ID. Please try again later.'
+        statusCode = 503 // Service Unavailable
+      } else {
+        errorMessage = error.message
+      }
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to create request' },
-      { status: 500 }
+      { 
+        error: errorMessage
+      },
+      { status: statusCode }
     )
   }
 }

@@ -65,10 +65,20 @@ const createMemoryStorage = () => ({
   }
 })
 
-export const saveRequest = async (request: Request): Promise<Request> => {
+export const saveRequest = async (request: Request, allowOverwrite = true): Promise<Request> => {
   console.log('💾 Storage: Saving request:', request.id, 'for requester:', request.requesterName)
   const kv = await initKV()
   const key = `request:${request.id}`
+  
+  // Check for existing request if overwrite protection is enabled
+  if (!allowOverwrite) {
+    const existingRequest = await kv.get(key)
+    if (existingRequest) {
+      console.error(`❌ Storage: Request ${request.id} already exists and overwrites are not allowed`)
+      throw new Error(`Request ${request.id} already exists. Cannot overwrite existing request.`)
+    }
+  }
+  
   const result = await kv.set(key, JSON.stringify(request))
   console.log('✅ Storage: Request saved with result:', result)
   return request
@@ -171,17 +181,65 @@ export const deleteRequest = async (id: string): Promise<boolean> => {
 export const getNextRequestId = async (): Promise<string> => {
   const kv = await initKV()
   const counterKey = 'request_counter'
+  const maxRetries = 10
   
-  // Get current counter value
-  const currentCounterStr = await kv.get(counterKey)
-  const currentCounter = currentCounterStr ? parseInt(currentCounterStr as string, 10) : 0
+  // Retry loop for handling collisions
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      console.log(`🔢 Storage: Attempting to generate ID (attempt ${attempt + 1}/${maxRetries})`)
+      
+      // Step 1: Get current counter and all existing request IDs atomically
+      const [currentCounterStr, existingKeys] = await Promise.all([
+        kv.get(counterKey),
+        kv.keys('request:*')
+      ])
+      
+      const currentCounter = currentCounterStr ? parseInt(currentCounterStr as string, 10) : 0
+      console.log(`📊 Storage: Current counter: ${currentCounter}, Existing requests: ${existingKeys?.length || 0}`)
+      
+      // Extract existing numeric IDs to find the actual highest ID
+      const existingIds = existingKeys
+        ?.map((key: string) => {
+          const requestId = key.replace('request:', '')
+          const match = requestId.match(/^REQ-(\d+)$/)
+          return match ? parseInt(match[1], 10) : 0
+        })
+        .filter((id: number) => id > 0) || []
+      
+      const highestExistingId = existingIds.length > 0 ? Math.max(...existingIds) : 0
+      console.log(`🔍 Storage: Highest existing ID: ${highestExistingId}`)
+      
+      // Step 2: Calculate next safe counter value
+      const nextCounter = Math.max(currentCounter + 1, highestExistingId + 1)
+      const candidateId = `REQ-${nextCounter.toString().padStart(3, '0')}`
+      const candidateKey = `request:${candidateId}`
+      
+      console.log(`🎯 Storage: Candidate ID: ${candidateId}`)
+      
+      // Step 3: Check if candidate ID already exists
+      const existingRequest = await kv.get(candidateKey)
+      if (existingRequest) {
+        console.log(`⚠️ Storage: ID ${candidateId} already exists, retrying...`)
+        // Update counter to skip this ID and retry
+        await kv.set(counterKey, nextCounter.toString())
+        continue
+      }
+      
+      // Step 4: Atomically update counter and reserve the ID
+      await kv.set(counterKey, nextCounter.toString())
+      
+      console.log(`✅ Storage: Generated unique ID: ${candidateId}`)
+      return candidateId
+      
+    } catch (error) {
+      console.error(`❌ Storage: Error in ID generation attempt ${attempt + 1}:`, error)
+      if (attempt === maxRetries - 1) {
+        throw new Error(`Failed to generate unique request ID after ${maxRetries} attempts`)
+      }
+      // Wait a bit before retrying to avoid tight loops
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+  }
   
-  // Increment counter
-  const nextCounter = currentCounter + 1
-  
-  // Save updated counter
-  await kv.set(counterKey, nextCounter.toString())
-  
-  // Return formatted ID with zero padding (e.g., REQ-001, REQ-002, etc.)
-  return `REQ-${nextCounter.toString().padStart(3, '0')}`
+  throw new Error('Failed to generate unique request ID')
 }

@@ -124,15 +124,18 @@ export default function RequestForm({ onSubmit, initialData, isEditing = false }
       let requestId: string = initialData?.id || ''
       if (!requestId) {
         try {
+          console.log('🔢 RequestForm: Generating new request ID...')
           const idResponse = await fetch('/api/requests/next-id')
           if (!idResponse.ok) {
-            throw new Error('Failed to generate request ID')
+            const errorData = await idResponse.json().catch(() => ({ error: 'Unknown error' }))
+            throw new Error(`Failed to generate request ID: ${errorData.error || 'Unknown error'}`)
           }
           const idData = await idResponse.json()
           requestId = idData.id
+          console.log('✅ RequestForm: Generated request ID:', requestId)
         } catch (error) {
-          console.error('Failed to generate request ID:', error)
-          setSubmitError('Failed to generate request ID. Please try again.')
+          console.error('❌ RequestForm: Failed to generate request ID:', error)
+          setSubmitError(`Failed to generate request ID: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`)
           setIsSubmitting(false)
           return
         }
