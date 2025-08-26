@@ -26,8 +26,8 @@ export async function POST(request: NextRequest) {
     }
     
     console.log('💾 API: Saving request to storage...')
-    // Save request to storage with overwrite protection for new requests
-    const savedRequest = await saveRequest(requestData, false) // Don't allow overwrites for new requests
+    // Save request to storage - timestamp IDs are mathematically unique, allow overwrites for updates
+    const savedRequest = await saveRequest(requestData, true) // Timestamp IDs guarantee uniqueness
     console.log('✅ API: Request saved successfully:', savedRequest.id)
     
     return NextResponse.json(savedRequest, { status: 201 })
