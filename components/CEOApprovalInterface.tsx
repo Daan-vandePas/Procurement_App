@@ -154,6 +154,30 @@ export default function CEOApprovalInterface({
     }
   }
 
+  const formatUrl = (url: string): string => {
+    // If it already has a protocol, return as is
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url
+    }
+    
+    // If it looks like a URL (contains dots), add https://
+    if (url.includes('.')) {
+      return `https://${url}`
+    }
+    
+    // Otherwise, it's probably just a reference, not a URL
+    return url
+  }
+
+  const isUrl = (text: string): boolean => {
+    // Check if it looks like a URL
+    return text.includes('.') && (
+      text.includes('www.') || 
+      text.includes('http') || 
+      text.match(/\.[a-z]{2,}/i) !== null
+    )
+  }
+
   const getApprovalSummary = () => {
     // Only consider items that need CEO approval (not rejected by purchaser)
     const itemsForApproval = items.filter(item => item.itemStatus !== 'rejected')
@@ -371,7 +395,25 @@ export default function CEOApprovalInterface({
                       <h4 className="font-medium text-gray-900 mb-2">Purchaser Information</h4>
                       <div className="space-y-1">
                         <p><span className="text-gray-500">Supplier:</span> {item.supplierName || 'Not specified'}</p>
-                        <p><span className="text-gray-500">Reference:</span> {item.supplierReference || 'Not specified'}</p>
+                        <p>
+                          <span className="text-gray-500">Reference:</span>{' '}
+                          {item.supplierReference ? (
+                            isUrl(item.supplierReference) ? (
+                              <a 
+                                href={formatUrl(item.supplierReference)} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="text-blue-600 hover:text-blue-800 hover:underline break-all"
+                              >
+                                {item.supplierReference}
+                              </a>
+                            ) : (
+                              <span className="break-all">{item.supplierReference}</span>
+                            )
+                          ) : (
+                            'Not specified'
+                          )}
+                        </p>
                         <p><span className="text-gray-500">Actual Cost:</span> {item.actualCost ? `€${item.actualCost}` : 'Not specified'}</p>
                         <p><span className="text-gray-500">Status:</span> 
                           <span className={`ml-1 px-2 py-0.5 text-xs rounded-full ${

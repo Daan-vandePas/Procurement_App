@@ -333,6 +333,30 @@ export default function RequestDetailPage() {
     return 'border-gray-200 bg-white'
   }
 
+  const formatUrl = (url: string): string => {
+    // If it already has a protocol, return as is
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url
+    }
+    
+    // If it looks like a URL (contains dots), add https://
+    if (url.includes('.')) {
+      return `https://${url}`
+    }
+    
+    // Otherwise, it's probably just a reference, not a URL
+    return url
+  }
+
+  const isUrl = (text: string): boolean => {
+    // Check if it looks like a URL
+    return text.includes('.') && (
+      text.includes('www.') || 
+      text.includes('http') || 
+      text.match(/\.[a-z]{2,}/i) !== null
+    )
+  }
+
   // Permission checks
   const canEditOriginal = user?.role === 'requester' && request?.requesterName === user.email && request?.status === 'draft'
   const canDeleteOriginal = user?.role === 'requester' && request?.requesterName === user.email && request?.status === 'draft'
@@ -571,7 +595,18 @@ export default function RequestDetailPage() {
                     {item.supplierReference && (
                       <div>
                         <h5 className="text-sm font-medium text-gray-500">Supplier Reference</h5>
-                        <p className="mt-1 text-sm text-gray-900 break-all">{item.supplierReference}</p>
+                        {isUrl(item.supplierReference) ? (
+                          <a 
+                            href={formatUrl(item.supplierReference)} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="mt-1 text-sm text-blue-600 hover:text-blue-800 hover:underline break-all"
+                          >
+                            {item.supplierReference}
+                          </a>
+                        ) : (
+                          <p className="mt-1 text-sm text-gray-900 break-all">{item.supplierReference}</p>
+                        )}
                       </div>
                     )}
                     
