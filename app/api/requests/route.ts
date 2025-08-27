@@ -26,41 +26,18 @@ export async function POST(request: NextRequest) {
     }
     
     console.log('💾 API: Saving request to storage...')
-    // Save request to storage - timestamp IDs are mathematically unique, allow overwrites for updates
-    const savedRequest = await saveRequest(requestData, true) // Timestamp IDs guarantee uniqueness
+    const savedRequest = await saveRequest(requestData)
     console.log('✅ API: Request saved successfully:', savedRequest.id)
     
     return NextResponse.json(savedRequest, { status: 201 })
   } catch (error) {
     console.error('❌ API: Error creating request:', error)
     
-    // Provide specific error messages for different failure types
-    let errorMessage = 'Failed to create request'
-    let statusCode = 500
-    
-    if (error instanceof Error) {
-      if (error.message.includes('already exists')) {
-        // This should be extremely rare with UUID system - likely a storage timing issue
-        errorMessage = 'Request ID conflict detected. Please try submitting again.'
-        statusCode = 409 // Conflict
-      } else if (error.message.includes('Failed to generate unique request ID')) {
-        // Timestamp ID generation system failed completely
-        errorMessage = 'Unable to generate request ID. Please try again in a moment.'
-        statusCode = 503 // Service Unavailable
-      } else if (error.message.includes('validation')) {
-        errorMessage = 'Invalid request data. Please check all required fields.'
-        statusCode = 400 // Bad Request
-      } else {
-        errorMessage = 'Unable to process request. Please try again.'
-        statusCode = 500
-      }
-    }
+    const errorMessage = 'Failed to create request'
+    const statusCode = 500
     
     return NextResponse.json(
-      { 
-        error: errorMessage,
-        retryable: statusCode !== 400 // Client can retry unless it's a validation error
-      },
+      { error: errorMessage },
       { status: statusCode }
     )
   }

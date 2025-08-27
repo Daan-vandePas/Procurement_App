@@ -30,7 +30,7 @@ const initKV = async () => {
       if (existingRequests.length === 0) {
         const { createSampleRequests } = await import('./sampleData')
         await createSampleRequests()
-        console.log('📝 Storage: Sample data created with timestamp-based ID system')
+        console.log('📝 Storage: Sample data created')
       }
     } catch (error) {
       // Failed to create sample data - continue without it
@@ -64,20 +64,10 @@ const createMemoryStorage = () => ({
   }
 })
 
-export const saveRequest = async (request: Request, allowOverwrite = true): Promise<Request> => {
+export const saveRequest = async (request: Request): Promise<Request> => {
   console.log('💾 Storage: Saving request:', request.id, 'for requester:', request.requesterName)
   const kv = await initKV()
   const key = `request:${request.id}`
-  
-  // Check for existing request if overwrite protection is enabled
-  if (!allowOverwrite) {
-    const existingRequest = await kv.get(key)
-    if (existingRequest) {
-      console.error(`❌ Storage: Request ${request.id} already exists and overwrites are not allowed`)
-      throw new Error(`Request ${request.id} already exists. Cannot overwrite existing request.`)
-    }
-  }
-  
   const result = await kv.set(key, JSON.stringify(request))
   console.log('✅ Storage: Request saved with result:', result)
   return request
@@ -177,13 +167,3 @@ export const deleteRequest = async (id: string): Promise<boolean> => {
   return result > 0
 }
 
-export const getNextRequestId = (): string => {
-  console.log('🕒 Storage: Generating compact timestamp-based request ID...')
-  
-  // Generate compact timestamp-based ID using base36 encoding
-  const timestamp = Date.now().toString(36).toUpperCase()
-  const requestId = `REQ-${timestamp}`
-  
-  console.log(`✅ Storage: Generated timestamp-based ID: ${requestId}`)
-  return requestId
-}

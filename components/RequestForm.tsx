@@ -120,26 +120,9 @@ export default function RequestForm({ onSubmit, initialData, isEditing = false }
       console.log('📝 RequestForm: Form submission started')
       console.log('👤 RequestForm: Current user at submit:', currentUser?.email || 'NO USER LOADED')
       
-      // Generate ID for new requests
-      let requestId: string = initialData?.id || ''
-      if (!requestId) {
-        try {
-          console.log('🕒 RequestForm: Generating new timestamp-based request ID...')
-          const idResponse = await fetch('/api/requests/next-id')
-          if (!idResponse.ok) {
-            const errorData = await idResponse.json().catch(() => ({ error: 'Unknown error' }))
-            throw new Error(`Failed to generate request ID: ${errorData.error || 'Unknown error'}`)
-          }
-          const idData = await idResponse.json()
-          requestId = idData.id
-          console.log('✅ RequestForm: Generated request ID:', requestId)
-        } catch (error) {
-          console.error('❌ RequestForm: Failed to generate request ID:', error)
-          setSubmitError(`Failed to generate request ID: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`)
-          setIsSubmitting(false)
-          return
-        }
-      }
+      // Generate ID for new requests - short client-side format
+      const requestId = initialData?.id || `req-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 2)}`
+      console.log('✅ RequestForm: Generated short request ID:', requestId)
 
       // Create request object
       const request: Request = {
