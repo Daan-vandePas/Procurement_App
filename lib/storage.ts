@@ -8,17 +8,52 @@ let sampleDataInitialized = false
 const initKV = async () => {
   if (kvInstance) return kvInstance
   
-  try {
-    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+  console.log('🔧 Storage: Initializing KV connection...')
+  console.log('🌍 Storage: Environment:', process.env.NODE_ENV || 'unknown')
+  
+  // Debug environment variables (without exposing sensitive data)
+  const hasKvUrl = !!process.env.KV_REST_API_URL
+  const hasKvToken = !!process.env.KV_REST_API_TOKEN
+  const kvUrlLength = process.env.KV_REST_API_URL?.length || 0
+  const kvTokenLength = process.env.KV_REST_API_TOKEN?.length || 0
+  
+  console.log(`🔑 Storage: KV_REST_API_URL present: ${hasKvUrl} (length: ${kvUrlLength})`)
+  console.log(`🔑 Storage: KV_REST_API_TOKEN present: ${hasKvToken} (length: ${kvTokenLength})`)
+  
+  if (hasKvUrl && hasKvToken && 
+      !process.env.KV_REST_API_URL?.includes('your-current-kv-url') &&
+      !process.env.KV_REST_API_TOKEN?.includes('your-current-kv-token')) {
+    
+    try {
+      console.log('☁️ Storage: Attempting to connect to Vercel KV...')
       const { kv } = await import('@vercel/kv')
       kvInstance = kv
-    } else {
-      // Fallback to in-memory storage for local development
-      kvInstance = createMemoryStorage()
+      console.log('✅ Storage: Successfully connected to Vercel KV')
+      
+      // Test the connection
+      try {
+        await kv.set('storage_test_key', 'test_value', { ex: 10 })
+        await kv.get('storage_test_key')
+        await kv.del('storage_test_key')
+        console.log('✅ Storage: KV connection test successful')
+      } catch (testError) {
+        console.error('❌ Storage: KV connection test failed:', testError)
+        throw testError
+      }
+      
+    } catch (error) {
+      console.error('❌ Storage: Failed to connect to Vercel KV:', error)
+      console.log('🔄 Storage: Falling back to file-based storage...')
+      kvInstance = await createFileStorage()
     }
-  } catch (error) {
-    // KV not available, using memory storage
-    kvInstance = createMemoryStorage()
+  } else {
+    if (!hasKvUrl || !hasKvToken) {
+      console.log('⚠️ Storage: Missing KV credentials')
+    } else {
+      console.log('⚠️ Storage: Placeholder KV credentials detected')
+    }
+    console.log('🔄 Storage: Using file-based storage for persistence...')
+    kvInstance = await createFileStorage()
   }
   
   // DEV ONLY: Auto-create sample data for development
@@ -40,29 +75,119 @@ const initKV = async () => {
   return kvInstance
 }
 
-// In-memory storage fallback for local development
-let memoryStore: { [key: string]: any } = {}
-const createMemoryStorage = () => ({
-  async set(key: string, value: any) {
-    memoryStore[key] = value
-    return 'OK'
-  },
-  async get(key: string) {
-    return memoryStore[key] || null
-  },
-  async del(key: string) {
-    delete memoryStore[key]
-    return 1
-  },
-  async keys(pattern?: string) {
-    const allKeys = Object.keys(memoryStore)
-    if (!pattern) return allKeys
-    
-    // Simple pattern matching for keys like "request:*"
-    const regex = new RegExp(pattern.replace('*', '.*'))
-    return allKeys.filter(key => regex.test(key))
+// File-based storage for persistent data across server restarts
+const createFileStorage = async () => {
+  const fs = await import('fs/promises')
+  const path = await import('path')
+  
+  // Create storage directory if it doesn't exist
+  const storageDir = path.join(process.cwd(), '.storage')
+  try {
+    await fs.access(storageDir)
+  } catch {
+    await fs.mkdir(storageDir, { recursive: true })
+    console.log('📁 Storage: Created .storage directory')
   }
-})
+  
+  const getFilePath = (key: string) => path.join(storageDir, `${key.replace(/[^a-zA-Z0-9-_:]/g, '_')}.json`)
+  
+  return {
+    async set(key: string, value: any) {
+      try {
+        const filePath = getFilePath(key)
+        await fs.writeFile(filePath, JSON.stringify({ key, value, timestamp: Date.now() }), 'utf8')
+        console.log(`💾 FileStorage: Saved key "${key}" to file`)
+        return 'OK'
+      } catch (error) {
+        console.error(`❌ FileStorage: Failed to save key "${key}":`, error)
+        throw error
+      }
+    },
+    
+    async get(key: string) {
+      try {
+        const filePath = getFilePath(key)
+        const content = await fs.readFile(filePath, 'utf8')
+        const data = JSON.parse(content)
+        console.log(`📂 FileStorage: Retrieved key "${key}" from file`)
+        return data.value
+      } catch (error) {
+        // File not found is normal, don't log as error
+        if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+          return null
+        }
+        console.error(`❌ FileStorage: Failed to retrieve key "${key}":`, error)
+        return null
+      }
+    },
+    
+    async del(key: string) {
+      try {
+        const filePath = getFilePath(key)
+        await fs.unlink(filePath)
+        console.log(`🗑️ FileStorage: Deleted key "${key}"`)
+        return 1
+      } catch (error) {
+        if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+          return 0 // File didn't exist
+        }
+        console.error(`❌ FileStorage: Failed to delete key "${key}":`, error)
+        return 0
+      }
+    },
+    
+    async keys(pattern?: string) {
+      try {
+        const files = await fs.readdir(storageDir)
+        let keys = files
+          .filter(file => file.endsWith('.json'))
+          .map(file => file.replace('.json', '').replace(/_/g, ':'))
+        
+        if (pattern) {
+          const regex = new RegExp(pattern.replace('*', '.*'))
+          keys = keys.filter(key => regex.test(key))
+        }
+        
+        console.log(`🔍 FileStorage: Found ${keys.length} keys matching pattern "${pattern || '*'}"`)
+        return keys
+      } catch (error) {
+        console.error('❌ FileStorage: Failed to list keys:', error)
+        return []
+      }
+    }
+  }
+}
+
+// In-memory storage fallback (only used if file storage fails)
+let memoryStore: { [key: string]: any } = {}
+const createMemoryStorage = () => {
+  console.log('⚠️ Storage: Using in-memory storage - data will be lost on restart!')
+  return {
+    async set(key: string, value: any) {
+      memoryStore[key] = value
+      console.log(`💭 MemoryStorage: Stored key "${key}" in memory`)
+      return 'OK'
+    },
+    async get(key: string) {
+      const value = memoryStore[key] || null
+      if (value) console.log(`💭 MemoryStorage: Retrieved key "${key}" from memory`)
+      return value
+    },
+    async del(key: string) {
+      delete memoryStore[key]
+      console.log(`💭 MemoryStorage: Deleted key "${key}" from memory`)
+      return 1
+    },
+    async keys(pattern?: string) {
+      const allKeys = Object.keys(memoryStore)
+      if (!pattern) return allKeys
+      
+      // Simple pattern matching for keys like "request:*"
+      const regex = new RegExp(pattern.replace('*', '.*'))
+      return allKeys.filter(key => regex.test(key))
+    }
+  }
+}
 
 export const saveRequest = async (request: Request): Promise<Request> => {
   console.log('💾 Storage: Saving request:', request.id, 'for requester:', request.requesterName)

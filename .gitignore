@@ -1,5 +1,12 @@
 node_modules
 
+# Local file-based storage (persistent data)
+.storage/
+
 # Uploaded files (keep the directory structure, ignore actual files)
 public/uploads/cost-proofs/*
 !public/uploads/cost-proofs/.gitkeep
+
+# Environment files with sensitive data
+.env.local
+.env.production
